@@ -1,10 +1,12 @@
 *.nii
+*.nii.gz
 *.csv
 *.zip
 
 data/
 dataset/
 
+venv/
 __pycache__/
 .ipynb_checkpoints/
 
