@@ -70,9 +70,9 @@ def subject_task_active_mask_path(subject, task, aquisition, smoothing, voxel_qu
         func_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}_active_map.nii.gz"
     )
 
-def subject_task_sample_path(subject, task, aquisition, smoothing, voxel_quantile):
+def subject_task_sample_prefix(subject, task, aquisition, smoothing, voxel_quantile):
     return pjoin(
-        project_dataset_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}_active_map.nii.gz"
+        project_dataset_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}_"
     )
 
 def processed_event(subject, task, aquisition):
