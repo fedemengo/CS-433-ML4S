@@ -35,6 +35,8 @@ fMRI_dir = pjoin(HCP_dir, "HCP_100unrelated_preprocessed_ERG/data")
 
 project_dir = "/media/RCPNAS/Data2/CS-433-ML4S/"
 project_data_dir = pjoin(project_dir, "data")
+project_dataset_dir = pjoin(project_dir, "dataset")
+
 derivatives_dir = pjoin(project_data_dir, "derivatives")
 
 anat_dir = pjoin(derivatives_dir, "anat")
@@ -66,6 +68,11 @@ def subject_task_fmap(subject, task, aquisition, smoothing):
 def subject_task_active_mask_path(subject, task, aquisition, smoothing, voxel_quantile):
     return pjoin(
         func_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}_active_map.nii.gz"
+    )
+
+def subject_task_sample_path(subject, task, aquisition, smoothing, voxel_quantile):
+    return pjoin(
+        project_dataset_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}_active_map.nii.gz"
     )
 
 def processed_event(subject, task, aquisition):
