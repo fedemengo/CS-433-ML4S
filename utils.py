@@ -19,6 +19,8 @@ from nilearn.plotting import (
     plot_glass_brain,
 )
 
+from viz import plot_brain_dist_comparison
+
 
 def mkdir_no_exist(d):
     os.makedirs(d, exist_ok=True)
@@ -53,12 +55,18 @@ def subject_task_concat_volumes_path(subject, task, aquisition, smoothing):
         func_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_fMRIvols.nii.gz"
     )
 
+def subject_task_regressor_path(subject, task, aquisition):
+    return pjoin(paradigm_dir, f"{subject}_Regressor_tfMRI_{task}_{aquisition}.mat")
 
 def subject_task_fmap(subject, task, aquisition, smoothing):
     return pjoin(
         func_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_fmap.nii.gz"
     )
 
+def subject_task_active_mask_path(subject, task, aquisition, smoothing, voxel_quantile):
+    return pjoin(
+        func_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}_active_map.nii.gz"
+    )
 
 def processed_event(subject, task, aquisition):
     return pjoin(events_dir, f"{subject}_{task}_{aquisition}_event.csv")
@@ -97,26 +105,25 @@ def process_gray_matter_mask(anat_dir, subject, border_size=10, save=False, plot
     nifti_image = nib.load(grey_matter_mask)
     mask_data = nifti_image.get_fdata()
 
-    plot_brain_dist(mask_data, "original")
-
+    clean_data = mask_data
     if border_size > 0:
-        mask_data[:border_size, :, :] = (
+        clean_data[:border_size, :, :] = (
             0  # Remove borders along the first dimension (x)
         )
-        mask_data[-border_size:, :, :] = 0
-        mask_data[:, :border_size, :] = (
+        clean_data[-border_size:, :, :] = 0
+        clean_data[:, :border_size, :] = (
             0  # Remove borders along the second dimension (y)
         )
-        mask_data[:, -border_size:, :] = 0
-        mask_data[:, :, :border_size] = (
+        clean_data[:, -border_size:, :] = 0
+        clean_data[:, :, :border_size] = (
             0  # Remove borders along the third dimension (z)
         )
-        mask_data[:, :, -border_size:] = 0
+        clean_data[:, :, -border_size:] = 0
 
-    plot_brain_dist(mask_data, "processed")
+    plot_brain_dist_comparison(mask_data, clean_data)
 
     clean_gm_mask = nib.Nifti1Image(
-        mask_data, affine=nifti_image.affine, header=nifti_image.header
+        clean_data, affine=nifti_image.affine, header=nifti_image.header
     )
 
     if plot:
@@ -370,7 +377,7 @@ def compute_bins_threshold(fmap,n_perc=90):
     flat_data = flat_data[np.isfinite(flat_data)]
     threshold = np.percentile(flat_data, n_perc)
     # Step 5: Plot the histogram
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(10, 4))
     plt.hist(flat_data, bins=100, color='blue', alpha=0.7)
     plt.axvline(x=threshold, color='red', linestyle='--', label=f'{n_perc}th percentile threshold')
     plt.title(f'Histogram of Activation Values, {n_perc}% threshold: {threshold}')
@@ -380,6 +387,7 @@ def compute_bins_threshold(fmap,n_perc=90):
     plt.grid(True)
     plt.show()
     return threshold 
+
 def get_mask(fmap,threshold):
     fmap_data = fmap.get_fdata()
     return fmap_data > threshold
