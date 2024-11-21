@@ -1,2 +1,0 @@
-# fMRI task classification
-
