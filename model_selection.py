@@ -97,6 +97,7 @@ def select_model(models_and_trainers, X_train, y_train, n_trials=100, n_folds=5)
                 
                 trainer.train(X_fold_train, y_fold_train)
                 fold_score = trainer.evaluate(X_fold_val, y_fold_val)
+                print(f"fold scole: {fold_score}")
                 
                 # Enable early stopping within folds
                 trial.report(fold_score, fold_idx)
@@ -119,7 +120,6 @@ def select_model(models_and_trainers, X_train, y_train, n_trials=100, n_folds=5)
             sampler=sampler,
             pruner=pruner
         )
-        study.trials_dataframe().to_csv(f'optuna_trials_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
 
         try:
             from joblib import parallel_backend
@@ -137,6 +137,7 @@ def select_model(models_and_trainers, X_train, y_train, n_trials=100, n_folds=5)
                 callbacks=[log_trial],
                 catch=(Exception,)
             )
+        study.trials_dataframe().to_csv(f'optuna_trials_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
         
         if study.best_value < best_score:
             best_score = study.best_value
