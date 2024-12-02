@@ -514,11 +514,9 @@ def create_labeled_sample(save_prefix, bold_data, predicted_data, active_mask_im
 
 
 def get_free_gpu():
-    
     pynvml.nvmlInit()
     device_count = pynvml.nvmlDeviceGetCount()
     
-    # Find GPU with most free memory
     max_free = 0
     best_gpu = 0
     

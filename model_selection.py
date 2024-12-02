@@ -11,7 +11,7 @@ import json
 import logging
 from datetime import datetime
 
-optuna.logging.get_logger("optuna").addHandler(logging.FileHandler("optuna.log"))
+optuna.logging.get_logger("optuna").addHandler(logging.FileHandler(f"./logs/optuna-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"))
 
 def log_trial(study, trial):
     print(f"\nTrial {trial.number}:")
@@ -138,7 +138,7 @@ def select_model(models_and_trainers, X_train, y_train, n_trials=100, n_folds=5)
                 callbacks=[log_trial],
                 catch=(Exception,)
             )
-        study.trials_dataframe().to_csv(f'optuna_trials_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+        study.trials_dataframe().to_csv(f'./optuna/optuna_trials_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
         
         if study.best_value < best_score:
             best_score = study.best_value

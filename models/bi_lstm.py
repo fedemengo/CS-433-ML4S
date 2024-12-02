@@ -51,6 +51,7 @@ class BiLSTMTrainer(BaseTrainer):
         self.model = model
         self.config = config or {}
         self.device = torch.device(f'cuda:{get_free_gpu()}' if torch.cuda.is_available() else 'cpu')
+        
         print(f"running on {self.device}")
         if model:
             self.model.to(self.device)

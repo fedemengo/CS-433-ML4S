@@ -6,6 +6,9 @@ docs/
 data/
 dataset/
 
+logs/
+preds/
+
 venv/
 __pycache__/
 .ipynb_checkpoints/
