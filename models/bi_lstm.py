@@ -5,7 +5,16 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from models.trainer.trainer import BaseTrainer
 from utils import get_free_gpu
+import json
 
+def pretty_print(data):
+    formatted_json = json.dumps(data, 
+        indent=2,
+        sort_keys=True,
+        separators=(',', ': '),
+        ensure_ascii=False
+    )
+    print(formatted_json)
 
 class BiLSTMModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, dropout_prob=0.2):        
@@ -38,6 +47,7 @@ class BiLSTMTrainer(BaseTrainer):
     model_cls = BiLSTMModel
     
     def __init__(self, model=None, config=None):
+        pretty_print(config)
         self.model = model
         self.config = config or {}
         self.device = torch.device(f'cuda:{get_free_gpu()}' if torch.cuda.is_available() else 'cpu')
@@ -71,7 +81,7 @@ class BiLSTMTrainer(BaseTrainer):
         best_loss = float('inf')
 
         print("X_train", X_train.shape)
-        print(f"learning params: batch_size={batch_size} ,n_epochs={n_epochs}")
+        print(f"learning params: batch_size={batch_size}, n_epochs={n_epochs}")
         
         train_dataset = TensorDataset(
             torch.FloatTensor(X_train), 
@@ -147,9 +157,7 @@ class BiLSTMTrainer(BaseTrainer):
     def _get_optimizer(optim_name, parameters, **params):
         optimizers = {
             'adam': optim.Adam,
-            'adamw': optim.AdamW,
             'sgd': optim.SGD,
-            'rmsprop': optim.RMSprop
         }
         return optimizers[optim_name](parameters, **params)
     
@@ -168,10 +176,10 @@ class BiLSTMTrainer(BaseTrainer):
             'input_size': 1, # fixed single voxel
             'hidden_size': trial.suggest_int('hidden_size', 32, 128, log=True),
             'output_size': 1, # fixed single voxel
-            'dropout_prob': trial.suggest_float('dropout_prob', 0.1, 0.5)
+            'dropout_prob': trial.suggest_float('dropout_prob', 0.1, 0.5, log=True)
         }
         
-        epochs = trial.suggest_int('epochs', 50, 100)
+        epochs = trial.suggest_int('epochs', 50, 100, log=True)
         
         training_params = {
             'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
@@ -179,7 +187,7 @@ class BiLSTMTrainer(BaseTrainer):
         }
         
         optimizer_name = trial.suggest_categorical(
-            'optimizer', ['adam', 'adamw', 'sgd']
+            'optimizer', ['adam', 'sgd']
         )
         
         optimizer_params = {
@@ -187,7 +195,7 @@ class BiLSTMTrainer(BaseTrainer):
         }
         
         if optimizer_name == 'sgd':
-            optimizer_params['momentum'] = trial.suggest_float('momentum', 0.0, 0.99)
+            optimizer_params['momentum'] = trial.suggest_float('momentum', 0.0, 0.99, log=True)
         
         use_scheduler = trial.suggest_categorical('use_scheduler', [True, False])
         scheduler_params = {}
@@ -198,13 +206,13 @@ class BiLSTMTrainer(BaseTrainer):
             )
             if scheduler_name == 'step':
                 scheduler_params.update({
-                    'step_size': trial.suggest_int('step_size', 5, 15),
-                    'gamma': trial.suggest_float('gamma', 0.1, 0.5)
+                    'step_size': trial.suggest_int('step_size', 5, 15, log=True),
+                    'gamma': trial.suggest_float('gamma', 0.1, 0.5, log=True)
                 })
             elif scheduler_name == 'reduce_lr':
                 scheduler_params.update({
-                    'patience': trial.suggest_int('patience', 3, 10),
-                    'factor': trial.suggest_float('factor', 0.1, 0.5)
+                    'patience': trial.suggest_int('patience', 3, 10, log=True),
+                    'factor': trial.suggest_float('factor', 0.1, 0.5, log=True)
                 })
             elif scheduler_name == 'cosine':
                 scheduler_params.update({

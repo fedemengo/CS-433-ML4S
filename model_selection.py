@@ -105,6 +105,7 @@ def select_model(models_and_trainers, X_train, y_train, n_trials=100, n_folds=5)
                     raise optuna.TrialPruned()
                 
                 fold_scores.append(fold_score)
+                torch.cuda.empty_cache()
             
             return np.mean(fold_scores)
 

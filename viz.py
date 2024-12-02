@@ -42,25 +42,23 @@ def plot_brain_dist_comparison(original, processed):
     plt.tight_layout()
     plt.show()
 
-
-def plot_voxel_timecourse(predicted_voxel, regressors):
-    n_voxels = predicted_voxel.shape[0]
+def plot_voxel_timecourse(predicted_voxel, binary_design_matrix):
     plt.figure(figsize=(20, 5))
-    
-    time = np.arange(len(regressors))
-    plt.fill_between(time, regressors, alpha=0.2, label='regressor')
-    discared = 0
+
+    n_voxels = predicted_voxel.shape[0]
+    max_h = 0.0
     for i in range(n_voxels):
-        if np.any(np.abs(predicted_voxel[i,:]) > 20):
-            discared += 1
-            continue
-        plt.plot(predicted_voxel[i,:])
+        max_h = max(max_h, np.max(predicted_voxel[i,:]))
+        plt.plot(predicted_voxel[i,:], alpha=0.6)
     
-    print(f"discarded {discared} / {n_voxels}")
+    
+    df = binary_design_matrix
+    for col in df.columns:
+        plt.fill_between(range(len(df)), df[col] * max_h, label=col, alpha=0.1)
+
     plt.title('Individual Voxel Timecourses')
     plt.xticks(np.linspace(0, predicted_voxel.shape[1], num=10))
     plt.xlabel('Time')
     plt.ylabel('Signal')
-    plt.legend()
+    plt.legend(bbox_to_anchor=(0.5, -0.2), loc='upper center', ncol=len(df.columns)//2)
     plt.show()
-    

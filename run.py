@@ -48,13 +48,15 @@ def main():
     print(X_train.shape, X_test.shape)
     print((n_subjects_train * n_voxels_train, n_timepoints_train, 1))
     print((n_subjects_test * n_voxels_test, n_timepoints_test, 1))
-    
+
+    # select the best model given raw data
     # models_and_trainers = [(BiLSTMModel, BiLSTMTrainer), (CNNRNNModel, CNNRNNTrainer)]
     models_and_trainers = [(BiLSTMModel, BiLSTMTrainer)]
     best_model, best_trainer_cls, model_params = select_model(
         models_and_trainers, X_train, y_train, n_trials=100, n_folds=5,
     )
     
+    # select the best data augmentation for the best model - optimizing over all of them was taking forever
     # augmenters = [NoiseAugmenter, SyntheticAugmenterm, RollingAugmenter, DilationAugmenter, PickAugmenter]
     # best_augmenter, aug_params = select_augmentation(
     #     best_model, best_trainer_cls, X_train, y_train, augmenters
