@@ -174,12 +174,12 @@ class BiLSTMTrainer(BaseTrainer):
         """Define the hyperparameter search space"""
         model_params = {
             'input_size': 1, # fixed single voxel
-            'hidden_size': trial.suggest_int('hidden_size', 32, 128, log=True),
+            'hidden_size': trial.suggest_int('hidden_size', 32, 256, log=True),
             'output_size': 1, # fixed single voxel
-            'dropout_prob': trial.suggest_float('dropout_prob', 0.1, 0.5, log=True)
+            'dropout_prob': trial.suggest_float('dropout_prob', 0.1, 0.5)
         }
         
-        epochs = trial.suggest_int('epochs', 50, 100, log=True)
+        epochs = trial.suggest_int('epochs', 50, 100)
         
         training_params = {
             'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
@@ -195,7 +195,7 @@ class BiLSTMTrainer(BaseTrainer):
         }
         
         if optimizer_name == 'sgd':
-            optimizer_params['momentum'] = trial.suggest_float('momentum', 0.0, 0.99, log=True)
+            optimizer_params['momentum'] = trial.suggest_float('momentum', 1e-5, 0.99, log=True)
         
         use_scheduler = trial.suggest_categorical('use_scheduler', [True, False])
         scheduler_params = {}
@@ -206,12 +206,12 @@ class BiLSTMTrainer(BaseTrainer):
             )
             if scheduler_name == 'step':
                 scheduler_params.update({
-                    'step_size': trial.suggest_int('step_size', 5, 15, log=True),
-                    'gamma': trial.suggest_float('gamma', 0.1, 0.5, log=True)
+                    'step_size': trial.suggest_int('step_size', 5, 15),
+                    'gamma': trial.suggest_float('gamma', 0.1, 0.5)
                 })
             elif scheduler_name == 'reduce_lr':
                 scheduler_params.update({
-                    'patience': trial.suggest_int('patience', 3, 10, log=True),
+                    'patience': trial.suggest_int('patience', 3, 10),
                     'factor': trial.suggest_float('factor', 0.1, 0.5, log=True)
                 })
             elif scheduler_name == 'cosine':
