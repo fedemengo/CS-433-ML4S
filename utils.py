@@ -164,7 +164,7 @@ def process_gray_matter_mask(anat_dir, subject, border_size=10, save=False, plot
         nib.save(clean_gm_mask, clean_gm_mask_file)
 
 
-def create_4d_volume(subject, task, acquisition, smoothing=5, save=False):
+def create_4d_volume(subject, task, acquisition, smoothing=5, save=True):
     concat_4d_vols_file = subject_task_concat_volumes_path(
         subject, task, acquisition, smoothing
     )
@@ -179,6 +179,7 @@ def create_4d_volume(subject, task, acquisition, smoothing=5, save=False):
         fMRI_dir, subject, f"tfMRI_{task}_{acquisition}/fMRIvols_GLMyes/"
     )
     nii_files = sorted(glob.glob(nii_directory + "*.nii"))
+    print("bold directory", nii_directory, len(nii_files))
 
     first_img = nib.load(nii_files[0])
     data = first_img.get_fdata()  # 3D data from the first file
@@ -197,7 +198,7 @@ def create_4d_volume(subject, task, acquisition, smoothing=5, save=False):
     if save:
         nib.save(concat_img, concat_4d_vols_file)
 
-    return concat_4d_vols_file
+    return nib.load(concat_4d_vols_file)
 
 
 def create_events_df(subject, task, acquisition, plot_regressors=False, save_csv=True, drop_non_paradigm=True):
@@ -464,7 +465,7 @@ def regressors_to_binary_design(flat_regressors):
     return pd.DataFrame(blocks, columns=cols)
 
 
-def create_active_voxel_mask(subject, task, acquisition, smoothing, voxel_quantile, base_gm_mask_img, fmap_img, threshold):
+def create_4d_volume_(subject, task, acquisition, smoothing, voxel_quantile, base_gm_mask_img, fmap_img, threshold):
     task_active_thr_map = subject_task_active_mask_path(subject, task, acquisition, smoothing, voxel_quantile)
     if os.path.isfile(task_active_thr_map):
         return nib.load(task_active_thr_map)

@@ -6,7 +6,7 @@ from sys import argv, exit
 from models.bi_lstm import BiLSTMTrainer, BiLSTMModel
 from datetime import datetime
 
-from augment import select_augmentation, shift
+from augment import select_augmentation, shift, temporal_scale
 
 from models.bi_lstm import BiLSTMModel, BiLSTMTrainer
 from models.cnn_rnn import CNNRNNModel, CNNRNNTrainer
@@ -66,7 +66,7 @@ def oneshot():
     }
     mt = BiLSTMTrainer(model=model, config=train_config)
 
-    X_train_aug, y_train_aug = shift(X_train, y_train)
+    X_train_aug, y_train_aug = temporal_scale(X_train, y_train, ratio=0.6)
 
     # train on length 1x data
     mt.train(X_train_aug, y_train_aug)

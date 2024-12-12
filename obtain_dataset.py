@@ -140,7 +140,8 @@ def get_block_and_neural_activity(glm, active_mask_data, binary_design_matrix,or
     # actual response (amplitude) in the voxel for each of the n_conditions
     betas_data = glm.compute_contrast(contrast_matrix, output_type='effect_size').get_fdata()
     active_voxel_beta = betas_data[active_mask_data > 0].reshape(-1, n_conditions)
-
+    print("Bdesign shape: ",binary_design_matrix.T.to_numpy().shape)
+    print("Active beta: ",active_voxel_beta.shape)
     predicted_neural_activity =  active_voxel_beta @ binary_design_matrix.T.to_numpy()
 
     print(predicted_neural_activity.shape)
@@ -199,14 +200,11 @@ def prepare_subject_sample(subject, task, acquisition, smoothing, voxel_quantile
     fmri_vols = create_4d_volume(subject, task, acquisition, smoothing, save=True)
 
     print("processing event conditions")
-    events = create_events_df(subject, task, acquisition)
-
-    regressors = scipy.io.loadmat(subject_task_regressor_path(subject, task, acquisition))
-    regressors_ts = regressors['Regressor'].flatten()
-    bdesign_matrix = binary_design_matrix(events, TR, fmri_vols.shape[-1])
+    
+    events_f = create_events_df(subject, task, acquisition,drop_non_paradigm=True)
 
     print("first GLM to select active voxel")
-    activity_glm = voxel_activation_glm(gm_mask, TR, fmri_vols, events)
+    activity_glm = voxel_activation_glm(gm_mask, TR, fmri_vols, events_f)
     
     n_regressors = activity_glm.design_matrices_[0].shape[1]
     n_conditions = n_regressors - 1 # drop constant regressor
@@ -224,8 +222,16 @@ def prepare_subject_sample(subject, task, acquisition, smoothing, voxel_quantile
     gm_mask = nib.load(gm_mask)
     active_mask = create_active_voxel_mask(subject, task, acquisition, smoothing, voxel_quantile, gm_mask, fmap, threshold)
     active_mask_data = active_mask.get_fdata()
-    
-    return label_extraction(activity_glm, active_mask_data, bdesign_matrix,fmri_vols.get_fdata())
+    print("Selecting events without droping rest condition")
+    events = create_events_df(subject, task, acquisition,drop_non_paradigm=False)
+    regressors = scipy.io.loadmat(subject_task_regressor_path(subject, task, acquisition))
+    regressors_ts = regressors['Regressor'].flatten()
+
+    bdesign_matrix = binary_design_matrix(events, TR, fmri_vols.shape[-1])
+
+    print("second GLM without censoring of rest condition")
+    interest_glm = voxel_activation_glm(gm_mask, TR, fmri_vols, events)
+    return label_extraction(interest_glm, active_mask_data, bdesign_matrix,fmri_vols.get_fdata())
 
 # Initialize an empty list to store datasets
 datasets = []
@@ -266,4 +272,4 @@ for entry in subjects_kept:
 # Combine datasets into one large xarray Dataset along the 'subject' dimension
 final_dataset = xr.concat(datasets, dim='subject', fill_value=np.nan)
 # Save to file
-final_dataset.to_netcdf(pjoin(derivatives_dir,f'dataset_{task}_{len(subjects_kept)}_subjects_both.nc'))
+final_dataset.to_netcdf(pjoin(derivatives_dir,f'dataset_{task}_{len(subjects_kept)}_subjects_both_noncens.nc'))

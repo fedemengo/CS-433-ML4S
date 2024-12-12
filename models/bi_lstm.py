@@ -175,21 +175,20 @@ class BiLSTMTrainer(BaseTrainer):
         """Define the hyperparameter search space"""
         model_params = {
             'input_size': 1, # fixed single voxel
-            'hidden_size': trial.suggest_int('hidden_size', 32, 256, log=True),
+            'hidden_size': 80,
             'output_size': 1, # fixed single voxel
-            'dropout_prob': trial.suggest_float('dropout_prob', 0.1, 0.5)
+            'dropout_prob': 0.4
         }
         
         epochs = trial.suggest_int('epochs', 50, 100)
         
         training_params = {
-            'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
+            'batch_size': trial.suggest_categorical('batch_size', [128]),
             'epochs': epochs,
         }
         
-        optimizer_name = trial.suggest_categorical(
-            'optimizer', ['adam', 'sgd']
-        )
+        # optimizer_name = trial.suggest_categorical('optimizer', ['adam', 'sgd'])
+        optimizer_name = trial.suggest_categorical('optimizer', ['adam'])
         
         optimizer_params = {
             'lr': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
@@ -198,7 +197,8 @@ class BiLSTMTrainer(BaseTrainer):
         if optimizer_name == 'sgd':
             optimizer_params['momentum'] = trial.suggest_float('momentum', 1e-5, 0.99, log=True)
         
-        use_scheduler = trial.suggest_categorical('use_scheduler', [True, False])
+        # use_scheduler = trial.suggest_categorical('use_scheduler', [True, False])
+        use_scheduler = trial.suggest_categorical('use_scheduler', [False])
         scheduler_params = {}
         
         if use_scheduler:
