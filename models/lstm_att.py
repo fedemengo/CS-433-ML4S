@@ -1,49 +1,48 @@
 import torch
+import torch.nn as nn
+import torch
 from torch import nn
 from torch import optim
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-from models.trainer.trainer import BaseTrainer
 from utils import get_free_gpu
-import json
+from loss.blocky_loss import blocky_loss
+from models.trainer.trainer import BaseTrainer
 
-def pretty_print(data):
-    formatted_json = json.dumps(data, 
-        indent=2,
-        sort_keys=True,
-        separators=(',', ': '),
-        ensure_ascii=False
-    )
-    print(formatted_json)
-
-class BiLSTM(nn.Module):
+class LSTM_attention(nn.Module):
     def __init__(self, input_size=1, hidden_size=64, output_size=1, dropout_prob=0.2):
-        super(BiLSTM, self).__init__()
+        super(LSTM_attention, self).__init__()
         
-        # Bidirectional LSTM layer
-        self.bilstm = nn.LSTM(input_size, hidden_size, batch_first=True, num_layers=3, bidirectional=True, dropout=dropout_prob)
-        # Fully connected layer
-        self.fc = nn.Linear(hidden_size * 2, output_size)  # *2 because of bidirectional
+        self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True, num_layers=2, dropout=dropout_prob)
+        self.attn = nn.Linear(hidden_size, hidden_size)
+        self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        # Pass through BiLSTM
-        lstm_out, _ = self.bilstm(x)  # lstm_out: (batch_size, seq_len, hidden_size * 2)
+        # Pass through LSTM
+        lstm_out, _ = self.lstm(x)  # lstm_out: (batch_size, seq_len, hidden_size)
         
-        # Use the output from the last time step
-        output = self.fc(lstm_out)  # Last time step output
+        # Apply attention mechanism at each time step
+        attn_weights = F.softmax(self.attn(lstm_out), dim=2)  # Shape: (batch_size, seq_len, hidden_size)
+        weighted_out = attn_weights * lstm_out  # Apply attention: (batch_size, seq_len, hidden_size)
+        
+        # Pass weighted outputs through fully connected layer
+        output = self.fc(weighted_out)  # Shape: (batch_size, seq_len, output_size)
         return output
 
 
-class BiLSTM_Trainer(BaseTrainer):
+
+
+class LSTM_attention_Trainer(BaseTrainer):
     def __str__(self):
         criterion = self.base_criterion
         if criterion is None:
             criterion = "blocky"
-        return f"BiLSTM_{criterion}"
+        return f"LSTM_attention_{criterion}"
 
     def __init__(self, model=None, config=None, base_criterion=None):
         super().__init__(model=model, config=config)
-        self.model_cls = BiLSTM
+        self.model_cls = LSTM_attention
         self.model = model
         self.config = config or {}
         self.base_criterion = base_criterion

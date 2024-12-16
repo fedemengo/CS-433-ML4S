@@ -1,49 +1,116 @@
 import torch
+import torch.nn as nn
+import torch
 from torch import nn
 from torch import optim
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-from models.trainer.trainer import BaseTrainer
 from utils import get_free_gpu
-import json
+from loss.blocky_loss import blocky_loss
+from models.trainer.trainer import BaseTrainer
 
-def pretty_print(data):
-    formatted_json = json.dumps(data, 
-        indent=2,
-        sort_keys=True,
-        separators=(',', ': '),
-        ensure_ascii=False
-    )
-    print(formatted_json)
-
-class BiLSTM(nn.Module):
-    def __init__(self, input_size=1, hidden_size=64, output_size=1, dropout_prob=0.2):
-        super(BiLSTM, self).__init__()
-        
-        # Bidirectional LSTM layer
-        self.bilstm = nn.LSTM(input_size, hidden_size, batch_first=True, num_layers=3, bidirectional=True, dropout=dropout_prob)
-        # Fully connected layer
-        self.fc = nn.Linear(hidden_size * 2, output_size)  # *2 because of bidirectional
+class OutputRNNbi(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size=1):
+        super(OutputRNNbi, self).__init__()
+        self.rnn = nn.LSTM(input_size, hidden_size, batch_first=True,num_layers=3,bidirectional=True) # Either GRU or LSTM
+        self.fc = nn.Linear(hidden_size*2, output_size)  # Maps hidden state to output
 
     def forward(self, x):
-        # Pass through BiLSTM
-        lstm_out, _ = self.bilstm(x)  # lstm_out: (batch_size, seq_len, hidden_size * 2)
+        # Pass through RNN
+        rnn_out, _ = self.rnn(x)  # rnn_out: (batch_size, seq_len, hidden_size)
         
-        # Use the output from the last time step
-        output = self.fc(lstm_out)  # Last time step output
+        # Apply fully connected layer
+        output = self.fc(rnn_out)  # output: (batch_size, seq_len, output_size)
         return output
 
+class KernelRNNbi(nn.Module):
+    def __init__(self, input_dim, hidden_dim, kernel_size):
+        super(KernelRNNbi, self).__init__()
+        self.rnn = nn.LSTM(input_dim, hidden_dim, batch_first=True, num_layers=2,bidirectional=True)
+        self.fc = nn.Linear(hidden_dim*2, kernel_size)  # Output kernel weights
 
-class BiLSTM_Trainer(BaseTrainer):
+    def forward(self, y):
+        # y: [batch_size, time_steps, input_dim]
+        rnn_out, _ = self.rnn(y)  # RNN output: [batch_size, time_steps, hidden_dim]
+        
+        # Select the last time step's output
+        last_output = rnn_out[:, -1, :]  # Shape: [batch_size, hidden_dim]
+        
+        # Generate a single kernel for the entire batch
+        kernel = self.fc(last_output)  # Shape: [batch_size, kernel_size]
+        return kernel  # Shape: [batch_size, kernel_size]
+# [batch_size, time_steps, kernel_size]
+
+class DeconvolutionCNNbi(nn.Module):
+    def __init__(self, kernel_size):
+        super(DeconvolutionCNNbi, self).__init__()
+        self.kernel_size = kernel_size
+
+    def forward(self, y, kernel):
+        # y: [batch_size, time_steps, 1]
+        # kernel: [batch_size, kernel_size]
+        
+        # Move time dimension to the end of the channel dimension
+        # y: [batch_size, 1, time_steps]
+        y = y.permute(0, 2, 1)
+        kernel = kernel.unsqueeze(1)  # kernel: [batch_size, 1, kernel_size]
+
+        # Calculate padding
+        total_padding = self.kernel_size - 1
+        left_padding = total_padding // 2
+        right_padding = total_padding - left_padding
+
+        # Apply padding to the entire batch at once
+        # F.pad can handle batching: input [batch_size, C, L] -> output [batch_size, C, L + padding]
+        padded_y = F.pad(y, (left_padding, right_padding), mode='reflect') 
+        # padded_y: [batch_size, 1, time_steps + total_padding]
+
+        # Reshape input for grouped convolution:
+        # We want each batch sample to be treated as a separate group.
+        # Convert [batch_size, 1, length] to [1, batch_size, length]
+        padded_y = padded_y.permute(1, 0, 2)  # Now: [1, batch_size, length]
+
+        # Perform grouped convolution
+        # groups = batch_size, in_channels = batch_size, out_channels = batch_size
+        # kernel: [batch_size, 1, kernel_size]
+        # input: [1, batch_size, length]
+        x_hat = F.conv1d(padded_y, kernel, groups=kernel.size(0))
+
+        # x_hat: [1, batch_size, time_steps]
+        # Permute back: [batch_size, 1, time_steps]
+        x_hat = x_hat.permute(1, 0, 2)
+
+        # Finally, permute to [batch_size, time_steps, 1]
+        x_hat = x_hat.permute(0, 2, 1)
+
+        return x_hat
+    
+# Combined RNN-CNN Model
+class RNNCNNDeconvolutionRNNbi(nn.Module):
+    def __init__(self, input_dim=1, hidden_dim=64, kernel_size=40, output_dim=1):
+        super(RNNCNNDeconvolutionRNNbi, self).__init__()
+        self.kernel_rnn = KernelRNNbi(input_dim, hidden_dim, kernel_size)
+        self.deconv_cnn = DeconvolutionCNNbi(kernel_size)
+        self.output_rnn = OutputRNNbi(input_dim,hidden_dim,output_dim)
+    def forward(self, y):
+        kernel = self.kernel_rnn(y)  # Predict kernel with RNN
+        x_hat = self.deconv_cnn(y, kernel)  # Deconvolve signal
+        x_out = self.output_rnn(x_hat)
+        return x_out  # Shape: [batch_size, timepoints, 1]
+
+
+
+class RNNCNNDeconvolutionRNN_bi_Trainer(BaseTrainer):
     def __str__(self):
         criterion = self.base_criterion
         if criterion is None:
             criterion = "blocky"
-        return f"BiLSTM_{criterion}"
+        return f"RNNCNNDeconvolutionRNN_bi_{criterion}"
 
     def __init__(self, model=None, config=None, base_criterion=None):
         super().__init__(model=model, config=config)
-        self.model_cls = BiLSTM
+        self.model_cls = RNNCNNDeconvolutionRNNbi
         self.model = model
         self.config = config or {}
         self.base_criterion = base_criterion

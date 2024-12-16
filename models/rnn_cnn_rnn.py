@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from utils import get_free_gpu
-
+from loss.blocky_loss import blocky_loss
 from models.trainer.trainer import BaseTrainer
 
 class OutputRNN(nn.Module):
@@ -44,8 +44,7 @@ class KernelRNN(nn.Module):
         
         # Generate a single kernel for the entire batch
         kernel = self.fc(last_output)  # Shape: [batch_size, kernel_size]
-        return kernel  # Shape: [batch_size, kernel_size]
-# [batch_size, time_steps, kernel_size]
+        return kernel  # Shape: [batch_size, kernel_size] # [batch_size, time_steps, kernel_size]
 
 class DeconvolutionCNN(nn.Module):
     def __init__(self, kernel_size):
@@ -98,7 +97,11 @@ class DeconvolutionCNN(nn.Module):
 
 class RNNCNNDeconvolutionRNN(nn.Module):
     def __init__(self, input_size=1, hidden_size=64, kernel_size=40, output_size=1):
-        print(input_size, hidden_size, kernel_size, output_size)
+        print("input_size=", input_size, 
+              "hidden_size=", hidden_size, 
+              "kernel_size=", kernel_size,
+              "output_size=", output_size)
+
         super(RNNCNNDeconvolutionRNN, self).__init__()
         self.kernel_rnn = KernelRNN(input_size, hidden_size, kernel_size)
         self.deconv_cnn = DeconvolutionCNN(kernel_size)
@@ -113,12 +116,18 @@ class RNNCNNDeconvolutionRNN(nn.Module):
 
 
 class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
-    
-    def __init__(self, model=None, config=None):
+    def __str__(self):
+        criterion = self.base_criterion
+        if criterion is None:
+            criterion = "blocky"
+        return f"RNNCNNDeconvolutionRNN_{criterion}"
+
+    def __init__(self, model=None, config=None, base_criterion=None):
+        super().__init__(model=model, config=config)
         self.model_cls = RNNCNNDeconvolutionRNN
         self.model = model
         self.config = config or {}
-        self.device = torch.device(f'cuda:1' if torch.cuda.is_available() else 'cpu')
+        self.base_criterion = base_criterion
         print(f"running on {self.device}")
         
         if model:
@@ -126,15 +135,25 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
             self._setup_training_components()
     
     def _setup_training_components(self):
-        self.criterion = self._get_loss_function(
-            self.config.get('loss_fn', 'blocky_loss'),
-            **self.config.get('loss_params', {})
-        )
+        print("LOSS", self.config.get('loss_fn', 'blocky_loss'))
+        print("LOSS params", self.config.get('loss_params', {}))
+        print("base criterion", self.base_criterion)
+
+        if self.base_criterion:
+            self.criterion = self.base_criterion
+        else:
+            self.criterion = self._get_loss_function(
+                self.config.get('loss_fn', 'blocky_loss'),
+                **self.config.get('loss_params', {})
+            )
         
         self.optimizer = self._get_optimizer(
             self.config.get('optimizer', 'adam'),
             self.model.parameters(),
-            **self.config.get('optimizer_params', {})
+            **self.config.get('optimizer_params', {
+                'lr': 0.0001,
+                'weight_decay': 1e-5,
+            })
         )
 
     @staticmethod
@@ -148,7 +167,7 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
         loss_params = {}
         if loss_name == "blocky_loss":
             loss_params = {
-                'alpha': 1.0,
+                'alpha': 8.0,
                 'beta': 1.0,
                 'lambda_tv': 1.0,
                 'lambda_const': 0.2,
@@ -276,32 +295,3 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
             'blocky_loss': blocky_loss,
         }
         return loss_fns[loss_name](**params)
-
-def gaussian_tv_penalty(predictions, alpha):
-    diffs = predictions[:, 1:] - predictions[:, :-1]
-    weights = torch.sqrt(2 * alpha * torch.e) * torch.exp(-alpha * diffs**2)
-    return torch.mean(weights)
-
-def anti_constant_penalty(predictions, beta):
-    variance = torch.var(predictions, dim=1)
-    varmean = torch.mean(variance)
-    return 1 - torch.exp(-beta * (varmean - 1)**2)
-
-def combined_penalty(predictions, alpha, beta, lambda_tv, lambda_const):
-    tv_loss = gaussian_tv_penalty(predictions, alpha)
-    const_loss = anti_constant_penalty(predictions, beta)
-    return (lambda_tv * tv_loss + lambda_const * const_loss)/(lambda_tv + lambda_const)
-
-def blocky_loss(alpha=1.0, beta=1.0, lambda_tv=1.0, lambda_const=1.0, lambda_val=0.01):
-    alpha = torch.tensor(alpha)
-    beta = torch.tensor(beta)
-    lambda_tv = torch.tensor(lambda_tv)
-    lambda_const = torch.tensor(lambda_const)
-    lambda_val = torch.tensor(lambda_val)
-
-    def loss_fn(predictions, targets):
-        criterion = nn.MSELoss()
-        loss_data = criterion(predictions, targets)
-        smoothness_loss = combined_penalty(predictions, alpha, beta, lambda_tv, lambda_const)
-        return loss_data + lambda_val * smoothness_loss
-    return loss_fn

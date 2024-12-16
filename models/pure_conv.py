@@ -1,49 +1,62 @@
 import torch
+import torch.nn as nn
+import torch
 from torch import nn
 from torch import optim
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-from models.trainer.trainer import BaseTrainer
 from utils import get_free_gpu
-import json
+from loss.blocky_loss import blocky_loss
+from models.trainer.trainer import BaseTrainer
 
-def pretty_print(data):
-    formatted_json = json.dumps(data, 
-        indent=2,
-        sort_keys=True,
-        separators=(',', ': '),
-        ensure_ascii=False
-    )
-    print(formatted_json)
-
-class BiLSTM(nn.Module):
-    def __init__(self, input_size=1, hidden_size=64, output_size=1, dropout_prob=0.2):
-        super(BiLSTM, self).__init__()
+class PureConv(nn.Module):
+    def __init__(self, input_dim=1, hidden_dim=64, kernel_size=40, output_dim=1, dropout_prob=0.2):
+        super(PureConv, self).__init__()
         
-        # Bidirectional LSTM layer
-        self.bilstm = nn.LSTM(input_size, hidden_size, batch_first=True, num_layers=3, bidirectional=True, dropout=dropout_prob)
-        # Fully connected layer
-        self.fc = nn.Linear(hidden_size * 2, output_size)  # *2 because of bidirectional
+        # Remove padding from the conv layers and do manual padding
+        self.conv1 = nn.Conv1d(input_dim, input_dim, kernel_size=kernel_size, padding=0)    
+        self.conv2 = nn.Conv1d(input_dim, input_dim, kernel_size=kernel_size, padding=0)      
+        self.conv3 = nn.Conv1d(input_dim, input_dim, kernel_size=kernel_size, padding=0)
+        self.dropout = nn.Dropout(dropout_prob)
 
-    def forward(self, x):
-        # Pass through BiLSTM
-        lstm_out, _ = self.bilstm(x)  # lstm_out: (batch_size, seq_len, hidden_size * 2)
-        
-        # Use the output from the last time step
-        output = self.fc(lstm_out)  # Last time step output
-        return output
+        self.kernel_size = kernel_size
+        self.total_padding = self.kernel_size - 1
+        self.left_padding = self.total_padding // 2
+        self.right_padding = self.total_padding - self.left_padding
+
+    def forward(self, y):
+        # [batch_size, time_steps, channels] -> [batch_size, channels, time_steps]
+        x = y.permute(0, 2, 1)
+
+        # Convolution 1 with manual padding
+        x = F.pad(x, (self.left_padding, self.right_padding), mode='reflect')
+        x = F.relu(self.conv1(x))
+
+        # Convolution 2 with manual padding
+        x = F.pad(x, (self.left_padding, self.right_padding), mode='reflect')
+        x = F.relu(self.conv2(x))
+
+        # Convolution 3 with manual padding
+        x = self.dropout(x)
+        x = F.pad(x, (self.left_padding, self.right_padding), mode='reflect')
+        x = self.conv3(x)
+
+        # [batch_size, channels, time_steps] -> [batch_size, time_steps, channels]
+        x_out = x.permute(0, 2, 1)
+        return x_out
 
 
-class BiLSTM_Trainer(BaseTrainer):
+class PureConv_Trainer(BaseTrainer):
     def __str__(self):
         criterion = self.base_criterion
         if criterion is None:
             criterion = "blocky"
-        return f"BiLSTM_{criterion}"
+        return f"PureConv_{criterion}"
 
     def __init__(self, model=None, config=None, base_criterion=None):
         super().__init__(model=model, config=config)
-        self.model_cls = BiLSTM
+        self.model_cls = PureConv
         self.model = model
         self.config = config or {}
         self.base_criterion = base_criterion
