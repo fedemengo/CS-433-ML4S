@@ -1,14 +1,23 @@
 # Estimating Brain Activity Timecourses Using fMRI Data
 
-## Project Overview
+## Table of Contents
+- [Overview](#overview)
+- [Key Objectives](#Objectives)
+- [Dataset Description](#Dataset)
+- [Methodology](#Methodology)
+- [Usage](#usage)
+- [Repo Structure](#RepoStructure)
+- [Requirements](Requirements)
+
+## Overview
 This project aims to estimate brain activity timecourses during task paradigms using functional magnetic resonance imaging (fMRI) data from the Human Connectome Project (HCP). The hypothesis driving this work is that neuronal firing patterns correspond to voxel activations in fMRI scans, and this relationship can be modeled as a blind deconvolution problem. Machine learning techniques, including Recurrent Neural Networks (RNNs) and Convolutional Neural Networks (CNNs), are employed to model the temporal dynamics and spatial characteristics of brain activity.
 
-## Key Objectives
+## Objectives
 1. Estimate the beta values from the BOLD signal
 2. Calculate the deconvolved neural activity timecourses during task paradigms.
 3. Explore machine learning techniques (RNNs and CNNs) for modeling brain activity dynamics.
 
-## Dataset Description
+## Dataset
 ### Source
 The dataset used in this project comes from the Human Connectome Project (HCP), a comprehensive resource for understanding the human brain's functional and structural connectivity.
 
@@ -34,21 +43,7 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
 2. **Machine Learning**:
    - **RNNs**: Capture temporal dependencies in the BOLD signal.
    - **CNNs**: Handle spatially structured data for improved analysis of voxel relationships.
-
-## File Structure
-The main files and directories in this project are as follows:
-
-## Requirements
-- **Programming Language**: Python 3.x
-- **Libraries**:
-  - NumPy
-  - SciPy
-  - scikit-learn
-  - TensorFlow or PyTorch
-  - nilearn
-  - nibabel
-- **System Requirements**: A machine with GPU support for training deep learning models.
-
+   - 
 ## Usage
 ### Data Preprocessing
 Run the preprocessing script to clean and smooth the data:
@@ -63,5 +58,18 @@ Run the voxel selection script to keep only the most meaningful the data:
 
 ...............
 
+## RepoStructure
+The main files and directories in this project are as follows:
+
+## Requirements
+- **Programming Language**: Python 3.x
+- **Libraries**:
+  - NumPy
+  - SciPy
+  - scikit-learn
+  - TensorFlow or PyTorch
+  - nilearn
+  - nibabel
+- **System Requirements**: A machine with GPU support for training deep learning models.
 
 
