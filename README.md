@@ -39,6 +39,7 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
    - **CNNs**: Handle spatially structured data for improved analysis of voxel relationships.
 
 ## File Structure
+The main files and directories in this project are as follows:
 
 ## Requirements
 - **Programming Language**: Python 3.x
@@ -65,8 +66,5 @@ Run the voxel selection script to keep only the most meaningful the data:
 
 ...............
 
-## Project Directory Structure
 
-The main files and directories in this project are as follows:
-''' plaintext
 
