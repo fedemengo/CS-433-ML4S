@@ -5,9 +5,9 @@ This project aims to estimate brain activity timecourses during task paradigms u
 
 ## Key Objectives
 1. Model the BOLD signal as a convolution of the Hemodynamic Response Function (HRF) and neural activity, incorporating noise:
-   \\[
-   \\text{BOLD}(t) = (h * a)(t) + \\varepsilon(t)
-   \\]
+   \[
+   \text{BOLD}(t) = (h * a)(t) + \varepsilon(t)
+   \]
 2. Estimate deconvolved neural activity timecourses during task paradigms.
 3. Explore machine learning techniques (RNNs and CNNs) for modeling brain activity dynamics.
 
@@ -54,5 +54,19 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
 ## Usage
 ### Data Preprocessing
 Run the preprocessing script to clean and smooth the data:
-```bash
-python scripts/data_preprocessing.py
+> python scripts/data_preprocessing.py
+
+### Voxel Selection
+Run the voxel selection script to keep only the most meaningful the data:
+
+> python scripts/voxel_selection.py
+
+### Models
+
+...............
+
+## Project Directory Structure
+
+The main files and directories in this project are as follows:
+''' plaintext
+
