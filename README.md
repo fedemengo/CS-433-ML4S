@@ -5,7 +5,7 @@ This project aims to estimate brain activity timecourses during task paradigms u
 
 ## Key Objectives
 1. Estimate the beta values from the BOLD signal
-2. Estimate deconvolved neural activity timecourses during task paradigms.
+2. Calculate the deconvolved neural activity timecourses during task paradigms.
 3. Explore machine learning techniques (RNNs and CNNs) for modeling brain activity dynamics.
 
 ## Dataset Description
