@@ -4,10 +4,7 @@
 This project aims to estimate brain activity timecourses during task paradigms using functional magnetic resonance imaging (fMRI) data from the Human Connectome Project (HCP). The hypothesis driving this work is that neuronal firing patterns correspond to voxel activations in fMRI scans, and this relationship can be modeled as a blind deconvolution problem. Machine learning techniques, including Recurrent Neural Networks (RNNs) and Convolutional Neural Networks (CNNs), are employed to model the temporal dynamics and spatial characteristics of brain activity.
 
 ## Key Objectives
-1. Model the BOLD signal as a convolution of the Hemodynamic Response Function (HRF) and neural activity, incorporating noise:
-   \[
-   \text{BOLD}(t) = (h * a)(t) + \varepsilon(t)
-   \]
+1. Model the BOLD signal as a convolution of the Hemodynamic Response Function (HRF) and neural activity, incorporating noise
 2. Estimate deconvolved neural activity timecourses during task paradigms.
 3. Explore machine learning techniques (RNNs and CNNs) for modeling brain activity dynamics.
 
