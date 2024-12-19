@@ -90,13 +90,11 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
 The main files and directories in this project are as follows:
 ```plaintext
 project-folder/
-├── atlas/HMAT/
-│   ├── HMAT_Manuscript.pdf       #
-│   ├── README.txt                #
+├── atlas/                        # motor atlas
 ├── docs                          # papers and bibliography
-├── loss/                         #
-│   ├── blocky_loss.py            #
-├── models/                       #
+├── loss/                         
+│   ├── blocky_loss.py            # our custom loss
+├── models/                       
 │   ├── trainer/                  #
 |   │   ├── trainer.py            # base trainer with shared logic
 │   ├── bi_lstm.py                # model 3 layers BiLSTM + fc
@@ -107,11 +105,7 @@ project-folder/
 │   ├── pure_conv.py              # model 3 layers conv
 |   ├── rnn_cnn_rnn.py            # model LSTM to create kernel + convolution + LSTM
 │   ├── rnn_cnn_rnn_bi.py         # model BiLSTM to create kernel + convolution + BiLSTM
-|── notebooks/
-|   ├──        #
-│   ├──        #
-|   ├──        #
-│   ├──
+|── notebooks/                    # legacy notebooks for sperimentation - not clean
 ├── augment.py                    # dataset augmentation
 └── dataset_motor.py              # dataset generation MOTOR task
 ├── dataset_multi_task.py         # dataset generation for others tasks
