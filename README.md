@@ -55,7 +55,7 @@ Run the preprocessing script to clean and smooth the data:
 data preprocessing requires fmri data from the HCP residing on the lab, it's >50gb so we are providing the data already preprocessed
 
 ### Models
-Run prediction using pretrained model
+Run prediction using pretrained model (for the motor task we'll be adding a ref to the dataset in the issue - too large for github)
 > python run.py eval        # for motor task prediction using motor task trained model
 >
 > python run.py             # for new task prediction using multi-trask trained model
