@@ -72,7 +72,7 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
 
 - **rnn_cnn_rnn_bi**: Similar to `rnn_cnn_rnn`, but uses bidirectional LSTMs in its architecture.
 
-
+All models come in custom classes paired with a trainer to train the specific model
 
 ## Requirements
 - **Programming Language**: Python 3.x
