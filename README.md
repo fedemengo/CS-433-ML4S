@@ -6,8 +6,9 @@
 - [Dataset Description](#Dataset)
 - [Methodology](#Methodology)
 - [Usage](#usage)
-- [Repo Structure](#RepoStructure)
 - [Requirements](Requirements)
+- [Repo Structure](#RepoStructure)
+
 
 ## Overview
 This project aims to estimate brain activity timecourses during task paradigms using functional magnetic resonance imaging (fMRI) data from the Human Connectome Project (HCP). The hypothesis driving this work is that neuronal firing patterns correspond to voxel activations in fMRI scans, and this relationship can be modeled as a blind deconvolution problem. Machine learning techniques, including Recurrent Neural Networks (RNNs) and Convolutional Neural Networks (CNNs), are employed to model the temporal dynamics and spatial characteristics of brain activity.
@@ -58,6 +59,19 @@ Run the voxel selection script to keep only the most meaningful the data:
 
 ...............
 
+
+## Requirements
+- **Programming Language**: Python 3.x
+- **Libraries**:
+  - NumPy
+  - SciPy
+  - scikit-learn
+  - TensorFlow or PyTorch
+  - nilearn
+  - nibabel
+- **System Requirements**: A machine with GPU support for training deep learning models.
+
+
 ## RepoStructure
 The main files and directories in this project are as follows:
 ```plaintext
@@ -98,17 +112,4 @@ project-folder/
 ├── select_subjects.pdf           # 
 ├── utils.py                      # 
 ├── viz.py                        #
-
-
-## Requirements
-- **Programming Language**: Python 3.x
-- **Libraries**:
-  - NumPy
-  - SciPy
-  - scikit-learn
-  - TensorFlow or PyTorch
-  - nilearn
-  - nibabel
-- **System Requirements**: A machine with GPU support for training deep learning models.
-
 
