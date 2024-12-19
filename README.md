@@ -46,14 +46,9 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
    - **CNNs**: Handle spatially structured data for improved analysis of voxel relationships.
    -
 ## Usage
-### Data Preprocessing
-Run the preprocessing script to clean and smooth the data:
-> python scripts/data_preprocessing.py
+### Prediction using pretrained model
 
-### Voxel Selection
-Run the voxel selection script to keep only the most meaningful the data:
-
-> python scripts/voxel_selection.py
+> python run.py
 
 ### Models
 
