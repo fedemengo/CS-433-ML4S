@@ -1,5 +1,6 @@
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import random
 
 def plot_brain_dist_comparison(original, processed):
     mask1 = (original != 0).astype(int)
@@ -62,10 +63,6 @@ def plot_voxel_timecourse(predicted_voxel, binary_design_matrix):
     plt.ylabel('Signal')
     plt.legend(bbox_to_anchor=(0.5, -0.2), loc='upper center', ncol=len(df.columns)//2)
     plt.show()
-
-
-import random
-import matplotlib.pyplot as plt
 
 def plot_voxels(bold, block, pred, n_samples=10, seed=42, print_x=False):
     random.seed(seed)

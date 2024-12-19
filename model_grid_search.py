@@ -2,11 +2,12 @@ from sklearn.model_selection import GroupShuffleSplit, GroupKFold
 import numpy as np
 import xarray as xr
 import torch
-from run import preprocess_dataset, create_train_test_split
-from augment import select_augmentation, shift, temporal_scale
-from model_selection import pretty_print
+from run import create_train_test_split
+from augment import shift, temporal_scale
 from datetime import datetime
 import json
+from sklearn.model_selection import GridSearchCV
+from sklearn.base import BaseEstimator
 
 from models.rnn_cnn_rnn import RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer
 from models.bi_lstm import BiLSTMModel, BiLSTMTrainer
@@ -24,142 +25,71 @@ def load_data():
     return subset_dataset
 
 
-def grid_search(models_and_trainers, X_train, y_train, n_folds=5):
-    def cleanup_gpu():
-        return
-        import gc
-        gc.collect()
-        torch.cuda.empty_cache()
+def preprocess_dataset(dataset):
+    valid_mask = ~dataset.X.isnull().any(dim='time')
+    print(f"Original shape: {dataset.X.shape}")
+    
+    dataset = dataset.isel(voxel=valid_mask.all(dim='subject'))
+    
+    print(f"Shape after dropping NaNs: {dataset.X.shape}")
+    return dataset
 
-    # Define grid search parameters
+class TorchModelWrapper(BaseEstimator):
+    def __init__(self, model_class, trainer_class, hidden_size=64, kernel_size=20, batch_size=32):
+        self.model_class = model_class
+        self.trainer_class = trainer_class
+        self.hidden_size = hidden_size
+        self.kernel_size = kernel_size
+        self.batch_size = batch_size
+        
+    def fit(self, X, y):
+        model_params = {
+            'input_size': 1,
+            'hidden_size': self.hidden_size,
+            'kernel_size': self.kernel_size,
+            'output_size': 1
+        }
+        
+        self.model = self.model_class(**model_params)
+        self.trainer = self.trainer_class(
+            model=self.model,
+            config={'batch_size': self.batch_size}
+        )
+        
+        X_tensor = prepare_bold_input(X)
+        y_tensor = prepare_target_input(y)
+        self.trainer.train(X_tensor, y_tensor)
+        return self
+    
+    def predict(self, X):
+        X_tensor = prepare_bold_input(X)
+        return self.trainer.predict(X_tensor)
+
+    def score(self, X, y):
+        X_tensor = prepare_bold_input(X)
+        y_tensor = prepare_target_input(y)
+        return -self.trainer.evaluate(X_tensor, y_tensor)  # Negative because sklearn maximizes
+
+def grid_search(models_and_trainers, X_train, y_train, n_folds=5):
     param_grid = {
         'hidden_size': [32, 64, 48, 64, 80],
         'kernel_size': [10, 20, 40, 60, 80],
         'batch_size': [16, 32, 48, 64]
     }
     
-    best_score = float('inf')
-    best_results = None
-    subjects = X_train.subject.values
-    gkf = GroupKFold(n_splits=n_folds)
-    splits = list(gkf.split(X_train, groups=subjects))
-
-    # Prepare data tensors for each fold
-    X_tensors = {}
-    y_tensors = {}
-    for fold_idx, (train_idx, val_idx) in enumerate(splits):
-        X_fold_train = X_train.isel(subject=train_idx)
-        X_fold_val = X_train.isel(subject=val_idx)
-        y_fold_train = y_train.isel(subject=train_idx)
-        y_fold_val = y_train.isel(subject=val_idx)
-        
-        X_tensors[fold_idx] = {
-            'train': prepare_bold_input(X_fold_train),
-            'val': prepare_bold_input(X_fold_val)
-        }
-        y_tensors[fold_idx] = {
-            'train': prepare_target_input(y_fold_train),
-            'val': prepare_target_input(y_fold_val)
-        }
-
-    run_id = str(int(datetime.now().timestamp()))
-    results_log = []
+    model_class, trainer_class = models_and_trainers[0]
+    estimator = TorchModelWrapper(model_class, trainer_class)
     
-    for ModelClass, TrainerClass in models_and_trainers:
-        from itertools import product
-        param_combinations = [dict(zip(param_grid.keys(), v)) 
-                            for v in product(*param_grid.values())]
-
-        for params in param_combinations:
-            # cleanup_gpu()  # Clean before each parameter combination
-            
-            full_params = {
-                'input_size': 1,
-                'output_size': 1,
-                'loss_fn': 'blocky_loss',
-                'training_logic': 'fixed',
-                'dropout_prob': 0.1,
-                **params,
-            }
-            
-            pretty_print(full_params)
-            
-            model_params = {
-                'input_size': full_params['input_size'],
-                'hidden_size': full_params['hidden_size'],
-                'kernel_size': full_params['kernel_size'],
-                'output_size': full_params['output_size'],
-            }
-            
-            fold_scores = []
-            for fold_idx in range(n_folds):
-                try:
-                    cleanup_gpu()  # Clean before each fold
-                    
-                    model = ModelClass(**model_params)
-                    trainer = TrainerClass(model=model, config=full_params)
-                    
-                    X_fold_train = X_tensors[fold_idx]['train']
-                    X_fold_val = X_tensors[fold_idx]['val']
-                    y_fold_train = y_tensors[fold_idx]['train']
-                    y_fold_val = y_tensors[fold_idx]['val']
-                    
-                    # Move to CPU after getting scores
-                    trainer.train(X_fold_train, y_fold_train)
-                    fold_score = trainer.evaluate(X_fold_val, y_fold_val)
-                    print(f"Fold {fold_idx}/{n_folds} score: {fold_score}")
-                    
-                    fold_scores.append(fold_score)
-                
-                finally:
-                    # Cleanup regardless of success/failure
-                    if 'model' in locals(): del model
-                    if 'trainer' in locals(): del trainer
-                    cleanup_gpu()
-            
-            if fold_scores:  # Only if we have valid scores
-                mean_score = np.mean(fold_scores)
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                print(f"Mean score: {mean_score}")
-                
-                result = {
-                    'parameters': params,
-                    'score': float(mean_score),  # Convert to float for JSON serialization
-                    'fold_scores': [float(score) for score in fold_scores]
-                }
-                results_log.append(result)
-
-                with open(f'./params_search/results_{run_id}_{timestamp}.json', 'w') as f:
-                    json.dump(result, f, indent=2)
-
-                if mean_score < best_score:
-                    best_score = mean_score
-                    best_results = (ModelClass, TrainerClass, full_params)
-                    print(f"New best score: {best_score}")
-                    print("Best parameters:")
-                    pretty_print(full_params)
-
-    with open(f'./params_search/results_{run_id}_all.json', 'w') as f:
-        json.dump(results_log, f, indent=2)
+    grid_search = GridSearchCV(
+        estimator=estimator,
+        param_grid=param_grid,
+        cv=n_folds,
+        n_jobs=1,  # GPU models keep at 1
+        verbose=2
+    )
     
-    cleanup_gpu()  # Final cleanup
-    
-    if best_results is None:
-        return None, None, None
-        
-    ModelClass, TrainerClass, best_params = best_results
-    
-    model_params = {
-        'input_size': best_params['input_size'],
-        'hidden_size': best_params['hidden_size'],
-        'output_size': best_params['output_size'],
-        'kernel_size': best_params['kernel_size']
-    }
-    
-    model = ModelClass(**model_params)
-    trainer = TrainerClass(model=model, config=best_params)
-    
-    return model, trainer, best_params
+    grid_search.fit(X_train, y_train)
+    return grid_search.best_estimator_.model, None, grid_search.best_params_
 
 def select_model_params():
     dataset = preprocess_dataset(load_data())
@@ -174,32 +104,11 @@ def select_model_params():
     print((n_subjects_test * n_voxels_test, n_timepoints_test, 1))
 
     # select the best model given raw data
-    # models_and_trainers = [(BiLSTMModel, BiLSTMTrainer), (CNNRNNModel, CNNRNNTrainer)]
     models_and_trainers = [(RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer)]
     best_model, best_trainer_cls, model_params = grid_search(
         models_and_trainers, X_train, y_train, n_folds=5,
     )
-    
-    # select the best data augmentation for the best model - optimizing over all of them was taking forever
-    # augmenters = [NoiseAugmenter, SyntheticAugmenterm, RollingAugmenter, DilationAugmenter, PickAugmenter]
-    # best_augmenter, aug_params = select_augmentation(
-    #     best_model, best_trainer_cls, X_train, y_train, augmenters
-    # )
-    
-    # final_model = best_trainer_cls.model_cls(**model_params)
-    final_trainer = best_trainer_cls(final_model)
-    
-    # X_aug, y_aug = best_augmenter.augment(X_train, y_train)
-    
-    # final_trainer.train(X_aug, y_aug)
-    # final_trainer.train(X_train, X_train)
-    
-    # test_predictions = final_trainer.predict(X_test)
-    # test_score = final_trainer.evaluate(X_test, y_test)
 
-    # final_trainer.save('final_model.pt')
-    
-    # return final_model, test_predictions, test_score
-    print(model_params)
 
-select_model_params()
+if __name__ == "__main__":
+    select_model_params()

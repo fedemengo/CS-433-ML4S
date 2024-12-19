@@ -1,10 +1,6 @@
 import numpy as np
 import torch
 
-def select_augmentation():
-    return 42
-
-
 def shift(X, y, shift_range=(-20, +20), groups=5, ratio=0.3):
     batch_size = X.shape[0]
     group_size = batch_size // groups
@@ -72,6 +68,7 @@ def augment_data(X_train, Y_train, shift_range=(-20, +20), amplitude_range=(0.5,
     Returns:
     - Augmented tensors for X, Y
     """
+    
     print("Data augmentation")
     # Apply time shifts and amplitude scaling to the training set
     augmented_X = []
@@ -122,19 +119,20 @@ def augment_data(X_train, Y_train, shift_range=(-20, +20), amplitude_range=(0.5,
         noisy_X = scaled_X + noise_X
 
         if plot_times:
+            noise_info = 20*np.log10((noise_level**2/torch.mean(scaled_X**2).item()))
+            title = f"Signal with added noise, noise added: {noise_info:.4f}, noise lev{noise_level:.4f}"
             x,y = noisy_X,scaled_Y
             plt.plot(x,label="original")
             plt.plot(y,label='block')
-            plt.title(f"Signal with added noise, noise added: {20*np.log10((noise_level**2/torch.mean(scaled_X**2).item())):.4f}, noise lev{noise_level:.4f}")
+            plt.title(title)
 
             plt.legend()
             plt.show()
             plot_times-=1
-        # Store augmented samples
+
         augmented_X.append(noisy_X)
         augmented_Y.append(scaled_Y)
 
-    # Convert lists back to tensors
     augmented_X_tensor = torch.stack(augmented_X)
     augmented_Y_tensor = torch.stack(augmented_Y)
     

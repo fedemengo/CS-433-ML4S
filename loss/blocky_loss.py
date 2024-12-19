@@ -26,9 +26,11 @@ def blocky_loss(alpha=8.0, beta=1.0, lambda_tv=1.0, lambda_const=1.0, lambda_val
 
     print(f"blocky loss params alpha={alpha} beta={beta} lambda_tv={lambda_tv} lambda_const={lambda_const} lambda_val={lambda_val}")
 
-    def loss_fn(predictions, targets):
+    def loss_fn(predictions, targets,epoch=1):
         criterion = nn.L1Loss()
+        weight = lambda_val * min(1,(epoch/30)**2)
+
         loss_data = criterion(predictions, targets)
         smoothness_loss = combined_penalty(predictions, alpha, beta, lambda_tv, lambda_const)
-        return loss_data + lambda_val * smoothness_loss
+        return loss_data + weight * smoothness_loss
     return loss_fn

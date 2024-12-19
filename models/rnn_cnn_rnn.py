@@ -114,7 +114,6 @@ class RNNCNNDeconvolutionRNN(nn.Module):
         x_out = self.output_rnn(x_hat)
         return x_out  # Shape: [batch_size, timepoints, 1]
 
-
 class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
     def __str__(self):
         criterion = self.base_criterion
@@ -140,7 +139,10 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
         print("base criterion", self.base_criterion)
 
         if self.base_criterion:
-            self.criterion = self.base_criterion
+            def loss(pred, true, epoch):
+                return self.base_criterion(pred, true)
+
+            self.criterion = loss
         else:
             self.criterion = self._get_loss_function(
                 self.config.get('loss_fn', 'blocky_loss'),
@@ -234,7 +236,7 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
                 # print("pred shape", outputs.shape)
                 # print("true shape", batch_y.shape)
                 # print("expanded", batch_y.unsqueeze(2).shape)
-                loss = self.criterion(outputs, batch_y.unsqueeze(2))
+                loss = self.criterion(outputs, batch_y.unsqueeze(2), epoch=epoch)
                 
                 loss.backward()
                 self.optimizer.step()
@@ -250,7 +252,7 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
             if avg_loss < best_loss - min_delta:
                 best_loss = avg_loss
                 patience_counter = 0
-            else:
+            elif epoch>31:
                 patience_counter += 1
 
             if patience_counter >= patience:
@@ -258,12 +260,12 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
                 break
                 
             # convergence check not learning noothing
-            if len(loss_history) >= convergence_window:
-                recent_losses = loss_history[-convergence_window:]
-                loss_variance = np.var(recent_losses)
-                if loss_variance < convergence_threshold:
-                    print(f'Loss converged after {epoch} epochs')
-                    break
+#            if len(loss_history) >= convergence_window:
+#                recent_losses = loss_history[-convergence_window:]
+#                loss_variance = np.var(recent_losses)
+#                if loss_variance < convergence_threshold:
+#                    print(f'Loss converged after {epoch} epochs')
+#                    break
 
     def evaluate(self, X_val, y_val):
         print("evaluating")

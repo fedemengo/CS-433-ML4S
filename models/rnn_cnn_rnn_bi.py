@@ -220,7 +220,7 @@ class RNNCNNDeconvolutionRNN_bi_Trainer(BaseTrainer):
                 # print("pred shape", outputs.shape)
                 # print("true shape", batch_y.shape)
                 # print("expanded", batch_y.unsqueeze(2).shape)
-                loss = self.criterion(outputs, batch_y.unsqueeze(2))
+                loss = self.criterion(outputs, batch_y.unsqueeze(2),epoch=epoch)
                 
                 loss.backward()
                 self.optimizer.step()
@@ -236,7 +236,7 @@ class RNNCNNDeconvolutionRNN_bi_Trainer(BaseTrainer):
             if avg_loss < best_loss - min_delta:
                 best_loss = avg_loss
                 patience_counter = 0
-            else:
+            elif epoch>31:
                 patience_counter += 1
 
             if patience_counter >= patience:
@@ -244,12 +244,12 @@ class RNNCNNDeconvolutionRNN_bi_Trainer(BaseTrainer):
                 break
                 
             # convergence check not learning noothing
-            if len(loss_history) >= convergence_window:
-                recent_losses = loss_history[-convergence_window:]
-                loss_variance = np.var(recent_losses)
-                if loss_variance < convergence_threshold:
-                    print(f'Loss converged after {epoch} epochs')
-                    break
+#            if len(loss_history) >= convergence_window:
+#                recent_losses = loss_history[-convergence_window:]
+#                loss_variance = np.var(recent_losses)
+#                if loss_variance < convergence_threshold:
+#                    print(f'Loss converged after {epoch} epochs')
+#                    break
 
     def evaluate(self, X_val, y_val):
         print("evaluating")

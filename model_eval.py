@@ -11,19 +11,10 @@ import json
 import logging
 from datetime import datetime
 from model_selection import prepare_bold_input, prepare_target_input
-from augment import select_augmentation, shift, temporal_scale, augment_data
+from augment import shift, temporal_scale, augment_data
 import matplotlib.pyplot as plt
 import os
 import numpy as np
-
-def pretty_print(data):
-    formatted_json = json.dumps(data, 
-        indent=2,
-        sort_keys=True,
-        separators=(',', ': '),
-        ensure_ascii=False
-    )
-    print(formatted_json)
 
 def save_data(name, data):
     json.dump(data, open(f"./models_eval/{name}.json", 'w'))
@@ -78,11 +69,15 @@ def eval_models(run_id, models_and_trainers, X_train, y_train, X_test, y_test, o
 
         plot_random_samples(run_model_prefix, "MOTOR", flat_res, conca_res)
 
+        run_model_tasks_prefix = f"{run_id}_{model_name}_tasks"
+        tasks_results = {"motor": model_result}
         for name, data in other_tasks_dataset.items():
             run_model_prefix_task = f"{run_id}_{model_name}_{name}"
-            _, flat_res_task, conca_res_task = trainer.full_eval(data[0], data[1])
+            task_result, flat_res_task, conca_res_task = trainer.full_eval(data[0], data[1])
             plot_random_samples(run_model_prefix_task, name, flat_res_task, conca_res_task)
+            tasks_results[name] = task_result
 
+        save_data(run_model_tasks_prefix, tasks_results)
         save_data(run_model_prefix, model_result)
         results[model_name] = model_result
         

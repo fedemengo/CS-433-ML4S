@@ -7,8 +7,10 @@ from datetime import datetime
 import time
 from torch import nn
 
-from preprocessing import merge_dataset
-from augment import select_augmentation, shift, temporal_scale, augment_data
+from preprocessing import merge_dataset, DATASET_DIR
+from augment import shift, temporal_scale, augment_data
+from model_selection import select_model, prepare_bold_input, prepare_target_input
+from model_eval import eval_models
 
 from models.bi_lstm import BiLSTM, BiLSTM_Trainer
 from models.conv_lstm import ConvLSTM, ConvLSTM_Trainer
@@ -19,20 +21,20 @@ from models.pure_conv import PureConv, PureConv_Trainer
 from models.rnn_cnn_rnn import RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer
 from models.rnn_cnn_rnn_bi import RNNCNNDeconvolutionRNNbi, RNNCNNDeconvolutionRNN_bi_Trainer
 from models.cnn_rnn import CNNRNNModel, CNNRNNTrainer
-from model_selection import select_model, prepare_bold_input, prepare_target_input
-from model_eval import eval_models
-
-DATASET = 'data/derivatives/dataset__subjects_normed.nc' 
-N_SUBJECTS = 5
-
 
 def load_combined_data():
-    dataset = merge_dataset(
+    merged = merge_dataset([
+        xr.load_dataset(f"{DATASET_DIR}/dataset_MOTOR_30_subjects_normed.nc").isel(subject=slice(0,10)),
+        xr.load_dataset(f"{DATASET_DIR}/dataset_LANGUAGE_30_subjects_normed.nc").isel(subject=slice(0,10)),
+        xr.load_dataset(f"{DATASET_DIR}/dataset_EMOTION_30_subjects_normed.nc").isel(subject=slice(0,10)),
+        xr.load_dataset(f"{DATASET_DIR}/dataset_WM_30_subjects_normed.nc").isel(subject=slice(0,10))
+    ])
 
-    )
+    return merged.stack(combined_subjects=('task', 'subject')).transpose('combined_subjects', 'voxel', 'time')
 
-def load_data(task="MOTOR_30", n_subjects=N_SUBJECTS):
-    dataset = xr.open_dataset(f"data/derivatives/dataset_{task}_subjects_normed.nc")
+
+def load_data(task="MOTOR_30", n_subjects=5):
+    dataset = xr.open_dataset(f"{DATASET_DIR}/dataset_{task}_subjects_normed.nc")
     selected_subjects = np.random.choice(dataset.subject.values, size=n_subjects, replace=False)
     subset_dataset = dataset.sel(subject=selected_subjects)
     return subset_dataset
@@ -46,12 +48,19 @@ def preprocess_dataset(dataset):
     print(f"Shape after dropping NaNs: {dataset.X.shape}")
     return dataset
 
+def preprocess_combined_dataset(dataset):
+    valid_mask = ~dataset.X.isnull().any(dim='time')
+    print(f"Original shape: {dataset.X.shape}")
+    
+    dataset = dataset.isel(voxel=valid_mask.all(dim='subject'))
+    
+    print(f"Shape after dropping NaNs: {dataset.X.shape}")
+    return dataset
+
 def create_combined_train_test_split(dataset, test_task='LANGUAGE'):
-    print("Actual index values:", dataset.combined_subjects.values[:5])  # just first 5 to see format
     combined = dataset.task.values
     test_mask = np.array([task.startswith(test_task) for task in combined])
     
-    # Get the full index values that match our mask
     full_index = dataset.combined_subjects.values
     return dataset.sel(combined_subjects=full_index[~test_mask]), dataset.sel(combined_subjects=full_index[test_mask])
 
@@ -65,18 +74,18 @@ def create_train_test_split(dataset, test_size=0.2, random_state=None):
     
     return dataset.sel(subject=train_subjects), dataset.sel(subject=test_subjects)
 
-def oneshot():
-    dataset = preprocess_dataset(load_data())
+def predict(run_id):
+    dataset = preprocess_combined_dataset(load_combined_data())
     train, test = create_combined_train_test_split(dataset, test_task='LANGUAGE')
     X_train, X_test =  prepare_bold_input(train.X), prepare_bold_input(test.X),
     y_train, y_test = prepare_target_input(train.Y), prepare_target_input(test.Y)
     print("Xs", X_train.shape, X_test.shape)
     print("ys", y_train.shape, y_test.shape)
 
-    # load model with reasonable params
+    # load model with grid-optimized params
     model = RNNCNNDeconvolutionRNN(
         input_size=1, 
-        hidden_size=80,
+        hidden_size=40,
         kernel_size=20,
         output_size=1,
     )
@@ -106,58 +115,17 @@ def oneshot():
     y_pred = mt.predict(X_test)
     print(y_pred.shape)
 
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    x_name = f"./preds/x-{ts}.npy"
-    y_true_name = f"./preds/y_true-{ts}.npy"
-    y_pred_name = f"./preds/y_pred-{ts}.npy"
+    x_name = f"./preds/x-{run_id}.npy"
+    y_true_name = f"./preds/y_true-{run_id}.npy"
+    y_pred_name = f"./preds/y_pred-{run_id}.npy"
 
     np.save(x_name, X_test)
     np.save(y_true_name, y_test)
     np.save(y_pred_name, y_pred)
-    print(f"run data saved with ts {ts}")
+    print("PREDICTION RUN DONE", run_id)
 
-def select_model_augmentation():
-    dataset = preprocess_dataset(load_data())
-
-    train, test = create_train_test_split(dataset)
-    X_train, X_test, y_train, y_test = train.X, test.X, train.Y, test.Y
-
-    n_subjects_train, n_voxels_train, n_timepoints_train = X_train.shape
-    n_subjects_test, n_voxels_test, n_timepoints_test = X_test.shape
-    print("train shape", X_train.shape, "test shape", X_test.shape)
-    print((n_subjects_train * n_voxels_train, n_timepoints_train, 1))
-    print((n_subjects_test * n_voxels_test, n_timepoints_test, 1))
-
-    # select the best model given raw data
-    # models_and_trainers = [(BiLSTMModel, BiLSTMTrainer), (CNNRNNModel, CNNRNNTrainer)]
-    models_and_trainers = [(RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer)]
-    best_model, best_trainer_cls, model_params = select_model(
-        models_and_trainers, X_train, y_train, n_trials=35, n_folds=5,
-    )
-    
-    # select the best data augmentation for the best model - optimizing over all of them was taking forever
-    # augmenters = [NoiseAugmenter, SyntheticAugmenterm, RollingAugmenter, DilationAugmenter, PickAugmenter]
-    # best_augmenter, aug_params = select_augmentation(
-    #     best_model, best_trainer_cls, X_train, y_train, augmenters
-    # )
-    
-    final_model = best_trainer_cls.model_cls(**model_params)
-    final_trainer = best_trainer_cls(final_model)
-    
-    # X_aug, y_aug = best_augmenter.augment(X_train, y_train)
-    
-    # final_trainer.train(X_aug, y_aug)
-    final_trainer.train(X_train, X_train)
-    
-    test_predictions = final_trainer.predict(X_test)
-    test_score = final_trainer.evaluate(X_test, y_test)
-
-    # final_trainer.save('final_model.pt')
-    
-    return final_model, test_predictions, test_score
-
-def evaluate_models():
-    dataset = preprocess_dataset(load_data(task="MOTOR_30", n_subjects=30))
+def evaluate_models(run_id):
+    dataset = preprocess_dataset(load_data(task="MOTOR_100", n_subjects=100))
 
     train, test = create_train_test_split(dataset)
     X_train, X_test, y_train, y_test = train.X, test.X, train.Y, test.Y
@@ -169,26 +137,27 @@ def evaluate_models():
     print((n_subjects_train * n_voxels_train, n_timepoints_train, 1))
     print((n_subjects_test * n_voxels_test, n_timepoints_test, 1))
 
-    language = preprocess_dataset(load_data(task="LANGUAGE_100", n_subjects=3))
-    emotion = preprocess_dataset(load_data(task="EMOTION_100", n_subjects=3))
-    wm = preprocess_dataset(load_data(task="WM_100", n_subjects=3))
+    language = preprocess_dataset(load_data(task="LANGUAGE_30", n_subjects=3))
+    emotion = preprocess_dataset(load_data(task="EMOTION_30", n_subjects=3))
+    wm = preprocess_dataset(load_data(task="WM_30", n_subjects=3))
     relational = preprocess_dataset(load_data(task="RELATIONAL_100", n_subjects=3))
+    gambling = preprocess_dataset(load_data(task="GAMBLING_30", n_subjects=3))
 
-    run_id = str(int(time.time()))
     # select the best model
     models_and_trainers = [
-        (BiLSTM, BiLSTM_Trainer, {"base_criterion": nn.L1Loss()}),
-        (ConvLSTM, ConvLSTM_Trainer, {"base_criterion": nn.L1Loss()}),
-        (LSTM_attention, LSTM_attention_Trainer, {"base_criterion": nn.L1Loss()}),
-        (PureConv, PureConv_Trainer, {"base_criterion": nn.L1Loss()}),
-        (RNNCNNDeconvolutionRNNbi, RNNCNNDeconvolutionRNN_bi_Trainer, {}),
-        (RNNCNNDeconvolutionRNNbi, RNNCNNDeconvolutionRNN_bi_Trainer, {"base_criterion": nn.L1Loss()}),
-        (LSTM1l, LSTM1lTrainer, {"base_criterion": nn.L1Loss()}),
-        (LSTM3l, LSTM3lTrainer, {"base_criterion": nn.L1Loss()}),
-        (RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer, {}),
+        # (BiLSTM, BiLSTM_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (ConvLSTM, ConvLSTM_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (LSTM_attention, LSTM_attention_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (PureConv, PureConv_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (RNNCNNDeconvolutionRNNbi, RNNCNNDeconvolutionRNN_bi_Trainer, {}),
+        # (RNNCNNDeconvolutionRNNbi, RNNCNNDeconvolutionRNN_bi_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (LSTM1l, LSTM1lTrainer, {"base_criterion": nn.L1Loss()}),
+        # (LSTM3l, LSTM3lTrainer, {"base_criterion": nn.L1Loss()}),
         (RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer, {"base_criterion": nn.L1Loss()}),
+        (RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer, {}),
         (RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer, {"base_criterion": nn.MSELoss()}),
     ]
+
     results = eval_models(
         run_id, 
         models_and_trainers, 
@@ -197,18 +166,22 @@ def evaluate_models():
         (("language", language),
          ("emotion", emotion),
          ("wm", wm), 
-         ("relational", relational))
+         ("relational", relational),
+         ("gambling", gambling))
     )
 
-    print("RUN DONE", run_id)
+    print("EVAL RUN DONE", run_id)
 
+def main():
+    run_id = str(int(time.time()))
+
+    if len(argv) > 1 and argv[1] == "predict":
+        predict(run_id)
+        return
+
+    if len(argv) > 1 and argv[1] == "eval":
+        evaluate_models(run_id)
+        return
 
 if __name__ == "__main__":
-    if len(argv) > 1 and argv[1] == "oneshot":
-        oneshot()
-        exit(0)
-    if len(argv) > 1 and argv[1] == "eval":
-        evaluate_models()
-        exit(0)
-
-    model, predictions, score = select_model_augmentation()
+    main()

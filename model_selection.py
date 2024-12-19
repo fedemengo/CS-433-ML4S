@@ -10,6 +10,7 @@ import numpy as np
 import json
 import logging
 from datetime import datetime
+from utils import pretty_print
 
 optuna.logging.get_logger("optuna").addHandler(logging.FileHandler(f"./logs/optuna-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"))
 
@@ -17,15 +18,6 @@ def log_trial(study, trial):
     print(f"\nTrial {trial.number}:")
     print(f"Params: {trial.params}")
     print(f"Value: {trial.value}")
-
-def pretty_print(data):
-    formatted_json = json.dumps(data, 
-        indent=2,
-        sort_keys=True,
-        separators=(',', ': '),
-        ensure_ascii=False
-    )
-    print(formatted_json)
 
 def prepare_bold_input(X_data):
     assert isinstance(X_data, xr.DataArray)
@@ -79,8 +71,8 @@ def select_model(models_and_trainers, X_train, y_train, n_trials=100, n_folds=5)
             model_params = {
                 'input_size': params['input_size'],
                 'hidden_size': params['hidden_size'],
+                'kernel_size': params['kernel_size'],
                 'output_size': params['output_size'],
-                'dropout_prob': params['dropout_prob']
             }
             
             pretty_print(params)
@@ -97,7 +89,7 @@ def select_model(models_and_trainers, X_train, y_train, n_trials=100, n_folds=5)
                 
                 trainer.train(X_fold_train, y_fold_train)
                 fold_score = trainer.evaluate(X_fold_val, y_fold_val)
-                print(f"fold scole: {fold_score}")
+                print(f"fold score: {fold_score}")
                 
                 # Enable early stopping within folds
                 trial.report(fold_score, fold_idx)

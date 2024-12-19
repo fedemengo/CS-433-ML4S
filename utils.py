@@ -8,7 +8,6 @@ import glob
 import warnings
 from os.path import join as pjoin
 import pynvml
-
 import scipy.io
 from nilearn import image
 from nilearn.glm import threshold_stats_img
@@ -26,6 +25,15 @@ from viz import plot_brain_dist_comparison
 def mkdir_no_exist(d):
     os.makedirs(d, exist_ok=True)
 
+def pretty_print(data):
+    formatted_json = json.dumps(data, 
+        indent=2,
+        sort_keys=True,
+        separators=(',', ': '),
+        ensure_ascii=False
+    )
+    print(formatted_json)
+
 
 # repetition has to be known
 TR = 0.72
@@ -36,7 +44,7 @@ fMRI_dir = pjoin(HCP_dir, "HCP_100unrelated_preprocessed_ERG/data")
 
 project_dir = "/media/RCPNAS/Data2/CS-433-ML4S/"
 project_data_dir = pjoin(project_dir, "data")
-project_dataset_dir = pjoin(project_dir, "dataset")
+DATASET_DIR = pjoin(project_dir, "dataset")
 
 derivatives_dir = pjoin(project_data_dir, "derivatives")
 
@@ -270,26 +278,27 @@ def plot_fmap(fmap, threshold, display_mode, task="", info=None, cut_cords=7,pdf
     display = plot_stat_map(
         fmap,
         threshold=threshold,
-        title=f"{task} F-stat map, abs(thr) > {threshold} {info}",
+        title=f"{task} F-stat map, abs(thr) > {threshold:.2f} {info}",
         display_mode=display_mode,
         figure=plt.figure(figsize=(15, 3)),
         cut_coords=cut_cords,
         black_bg=True,
         colorbar=True,
-        cmap="hot"
+        cmap="hot",
     )
     # Save to the PDF if a PdfPages object is provided
     if pdf is not None:
         pdf.savefig(display.frame_axes.figure)
         plt.close(display.frame_axes.figure)
     else: plt.show()
+        
 def plot_fmap_glass(fmap, threshold, task="", info=None):
     plot_glass_brain(
         fmap,
         display_mode="ortho",
         colorbar=True,
         threshold=threshold,
-        title=f"{task} F-stat map, abs(thr) > {threshold} {info}",
+        title=f"{task} F-stat map, abs(thr) > {threshold:.2f} {info}",
     )
 
 
