@@ -56,8 +56,17 @@ Run the voxel selection script to keep only the most meaningful the data:
 > python scripts/voxel_selection.py
 
 ### Models
-
-...............
+Models can be found inside the ⁠ models ⁠ directory, with the subdirectory ⁠ trainer ⁠ containing the train class to train the models. The following models have been reported:
+•⁠  ⁠*bi_lstm*: bidirectional LSTM, 3 layers + + Fully connected layer
+•⁠  ⁠*cnn_rnn*: CNN that feeds into RNN + FC
+•⁠  ⁠*conv_lstm*: CNN that feeds into LSTM + Fully connected layer
+•⁠  ⁠*lstm_1l*: simple 1 layer LSTM + Fully connected layer
+•⁠  ⁠*lstm_3l*: 3 layers LSTM + Fully connected layer
+•⁠  ⁠*lstm_att*: LSTM with attention mechanism
+•⁠  ⁠*lstm_conv*: LSTM that feeds into convolutional layer
+•⁠  ⁠*pure_conv*: CNN 3 Layers + Fully connected layer
+•⁠  ⁠*rnn_cnn_rnn*: LSTM 2layer + FC that predicts a convolutional kernel, the convolved signal feeds into a 3L LSTM + FC
+•⁠  ⁠*rnn_cnn_rnn_bi*: same as above, using bidirectional LSTMs
 
 
 ## Requirements
