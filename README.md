@@ -68,7 +68,7 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
 
 - **pure_conv**: A pure CNN model with 3 layers, followed by a fully connected (FC) layer.
 
-- **rnn_cnn_rnn**: A hybrid model consisting of a 2-layer LSTM followed by a fully connected (FC) layer that predicts a convolutional kernel. The convolved signal then feeds into a 3-layer LSTM, followed by another FC layer.
+- **rnn_cnn_rnn**: A hybrid model consisting of a 2-layer LSTM followed by a fully connected (FC) layer that predicts a convolutional kernel. The convolved signal then feeds into a 3-layer LSTM, followed by another FC layer. This is our final and most performant model
 
 - **rnn_cnn_rnn_bi**: Similar to `rnn_cnn_rnn`, but uses bidirectional LSTMs in its architecture.
 
