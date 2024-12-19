@@ -65,35 +65,35 @@ project-folder/
 ├── atlas/HMAT/
 │   ├── HMAT_Manuscript.pdf       # 
 │   ├── README.txt                # 
-├── docs                          #papers and bibliography
+├── docs                          # papers and bibliography
 ├── loss/                         #
 │   ├── blocky_loss.py            # 
 │   ├── loss.py                   #
 ├── models/                       #
 │   ├── trainer/                  #
 |   │   ├── trainer.py            # 
-│   ├── bi_lstm.py                # 
-│   ├── cnn_rnn.py                #
-|   ├── conv_lstm.py              # 
-│   ├── lstm_1l.py                #
-|   ├── lstm_3l.py                # 
-│   ├── lstm_att.py               #
-|   ├── lstm_conv.py              # 
-│   ├── pure_conv.py              #
-|   ├── rnn_cnn_rnn.py            # 
-│   ├── rnn_cnn_rnn_bi.py         #   
+│   ├── bi_lstm.py                # model 3 layers BiLSTM + fc 
+│   ├── cnn_rnn.py                # model Conv + 2 layers LSTM + fc
+|   ├── conv_lstm.py              # model Conv + 3 layers LSTM + fc
+│   ├── lstm_1l.py                # model 1 layers LSTM + fc
+|   ├── lstm_3l.py                # model 3 layers LSTM + fc
+│   ├── lstm_att.py               # model LSTM + attention + fc
+|   ├── lstm_conv.py              # model 
+│   ├── pure_conv.py              # model 3 layers conv
+|   ├── rnn_cnn_rnn.py            # model LSTM to create kernel + convolution + LSTM
+│   ├── rnn_cnn_rnn_bi.py         # model BiLSTM to create kernel + convolution + BiLSTM
 |── notebooks/
 |   ├──        # 
 │   ├──        #
 |   ├──        # 
 │   ├──  
-├── augment.py                    # 
+├── augment.py                    # dataset augmentation
 ├── model_eval.py                 # 
 ├── model_grid_search.py          # 
-├── model_selection.py            #
+├── model_selection.py            # 
 ├── obtain_dataset.py             # 
-└── preprocessing.py              # 
-├── preprocessing_multi_task.py   # 
+└── preprocessing.py              # preprocessing MOTOR task
+├── preprocessing_multi_task.py   # preprocessing others tasks
 ├── run.py                        # 
 ├── select_subjects.pdf           # 
 ├── utils.py                      # 
