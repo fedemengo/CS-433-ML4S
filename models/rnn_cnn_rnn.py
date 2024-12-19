@@ -147,20 +147,22 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
             self._setup_training_components()
 
     def _setup_training_components(self):
-        print("loss", self.config.get("loss_fn", "blocky_loss"))
-        print("loss params", self.config.get("loss_params", {}))
+        loss_fn = self.config.get("loss_fn", "blocky_loss")
+        loss_params = self.config.get("loss_params", {})
+
+        print("loss", loss_fn)
+        print("loss params", loss_params)
         print("base criterion", self.base_criterion)
 
         if self.base_criterion:
-
             def loss(pred, true, epoch):
                 return self.base_criterion(pred, true)
 
             self.criterion = loss
         else:
             self.criterion = self._get_loss_function(
-                self.config.get("loss_fn", "blocky_loss"),
-                **self.config.get("loss_params", {}),
+                loss_fn,
+                **loss_params,
             )
 
         self.optimizer = self._get_optimizer(
@@ -187,8 +189,8 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
                 "alpha": 8.0,
                 "beta": 1.0,
                 "lambda_tv": 1.0,
-                "lambda_const": 0.2,
-                "lambda_val": 3.6788,
+                "lambda_const": 1.0,
+                "lambda_val": 2.61,
             }
 
         training_logic = trial.suggest_categorical("training_logic", ["fixed"])
@@ -303,6 +305,7 @@ class RNNCNNDeconvolutionRNNTrainer(BaseTrainer):
 
     @staticmethod
     def _get_loss_function(loss_name, **params):
+        print(loss_name)
         print(params)
         loss_fns = {
             "blocky_loss": blocky_loss,

@@ -139,7 +139,8 @@ def prepare_subject_sample(
     )
     threshold = compute_bins_threshold(fmap, n_perc=voxel_quantile, pdf=pdf)
 
-    atlas_activation = get_atlas_activation(fmap, task_atlas_path[task], threshold)
+    atlas = task_atlas_path()
+    atlas_activation = get_atlas_activation(fmap, atlas[task], threshold)
     print("Atlas activation [1-100]: ", atlas_activation)
 
     plot_fmap(

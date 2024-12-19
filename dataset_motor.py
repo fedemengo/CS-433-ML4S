@@ -83,7 +83,6 @@ def main():
             SMOOTHING,
             voxel_quantile=98,
             label_extraction=get_block_and_neural_activity,
-            show=False,
         )
 
         # xarray dataset for this subject

@@ -46,9 +46,19 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
    - **CNNs**: Handle spatially structured data for improved analysis of voxel relationships.
 
 ## Usage
-### Prediction using pretrained model
+### Data Preprocessing
+Run the preprocessing script to clean and smooth the data:
+> python dataset_motor.py
+> 
+> python dataset_multi_task.py
 
-> python run.py
+data preprocessing requires fmri data from the HCP residing on the lab, it's >50gb so we are providing the data already preprocessed
+
+### Models
+Run prediction using pretrained model
+> python run.py eval        # for motor task prediction using motor task trained model
+>
+> python run.py             # for new task prediction using multi-trask trained model
 
 ## Models
 

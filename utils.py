@@ -19,7 +19,6 @@ from nilearn.plotting import (
     plot_img,
     plot_glass_brain,
 )
-from utils import resample_mask
 
 from viz import plot_brain_dist_comparison
 
@@ -60,9 +59,9 @@ mkdir_no_exist(anat_dir)
 mkdir_no_exist(func_dir)
 mkdir_no_exist(events_dir)
 
-motor_atlas_old = "/media/RCPNAS/Data2/CS-433-ML4S/HMAT/HMAT.nii"
-task_atlas_path = {"MOTOR": resample_mask(motor_atlas_old)}
-
+def task_atlas_path():
+    motor_atlas_old = "/media/RCPNAS/Data2/CS-433-ML4S/HMAT/HMAT.nii"
+    return {"MOTOR": resample_mask(motor_atlas_old)}
 
 def subject_gm_mask_path(subject):
     return pjoin(anat_dir, f"{subject}_gm_mask.nii.gz")
@@ -485,6 +484,7 @@ def resample_mask(mask_path):
         print(f"Resampled mask saved to {resampled_mask_path}")
     else:
         print(f"Resampled mask already present at {resampled_mask_path}")
+
     return resampled_mask_path
 
 

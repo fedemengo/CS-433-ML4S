@@ -47,7 +47,7 @@ def temporal_scale(X, y, scale_range=(0.8, 1.2), ratio=0.3, keep_len=True):
     ):
         new_length = int(time_points * np.random.uniform(*scale_range))
         x_interp = (
-            torch.nn.functional.interpolate(X[vox_idx].T.unsqueeze(0), size=new_length)
+            torch.nn.functional.interpolate(X[vox_idx].mT.unsqueeze(0), size=new_length)
             .squeeze()
             .T.unsqueeze(-1)
         )

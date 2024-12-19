@@ -4,8 +4,7 @@ from torch import optim
 from abc import ABC, abstractmethod
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-
-from loss.loss import combined_penalty
+from loss.blocky_loss import combined_penalty
 
 lambda_val = 2.6  # Pretuned hyperparameter - do not touch
 
@@ -31,7 +30,16 @@ class BaseTrainer(ABC):
         self.config = config
         self.device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
+    def save_model(self, path):
+        torch.save(self.model.state_dict(), path)
+
+    def load_model(self, path):
+        self.model = torch.load(path)
+        self.model.eval()
+
     def full_eval(self, X_val, y_val):
+        self.model.eval()
+
         eval_dataset = TensorDataset(X_val, y_val)
         eval_loader = DataLoader(eval_dataset, batch_size=32, shuffle=True)
 

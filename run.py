@@ -1,12 +1,14 @@
+import os
 from sklearn.model_selection import GroupShuffleSplit
 import numpy as np
 import xarray as xr
 import torch
+from pathlib import Path
 from sys import argv
 import time
 from torch import nn
-
-from preprocessing import merge_dataset, DATASET_DIR
+from preprocessing import merge_dataset
+from utils import DATASET_DIR
 from augment import temporal_scale, augment_data
 from model_selection import prepare_bold_input, prepare_target_input
 from model_eval import eval_models
@@ -23,28 +25,38 @@ from models.rnn_cnn_rnn_bi import (
     RNNCNNDeconvolutionRNN_bi_Trainer,
 )
 
+def load_combined(subjects_per_task=1, random_state=42):
+   path = f"{DATASET_DIR}/combined_s{subjects_per_task}_r{random_state}.nc"
+   if os.path.exists(path):
+       return xr.load_dataset(path)
+   return None 
 
-def load_combined_data():
-    merged = merge_dataset(
-        [
-            xr.load_dataset(f"{DATASET_DIR}/dataset_MOTOR_30_subjects_normed.nc").isel(
-                subject=slice(0, 10)
-            ),
-            xr.load_dataset(
-                f"{DATASET_DIR}/dataset_LANGUAGE_30_subjects_normed.nc"
-            ).isel(subject=slice(0, 10)),
-            xr.load_dataset(
-                f"{DATASET_DIR}/dataset_EMOTION_30_subjects_normed.nc"
-            ).isel(subject=slice(0, 10)),
-            xr.load_dataset(f"{DATASET_DIR}/dataset_WM_30_subjects_normed.nc").isel(
-                subject=slice(0, 10)
-            ),
-        ]
-    )
+def store_combined(data, subjects_per_task, random_state): 
+   path = f"{DATASET_DIR}/combined_s{subjects_per_task}_r{random_state}.nc"
+   if not os.path.exists(path):
+       data_reset = data.reset_index("combined_subjects")
+       data_reset.to_netcdf(path)
 
-    return merged.stack(combined_subjects=("task", "subject")).transpose(
-        "combined_subjects", "voxel", "time"
-    )
+def load_combined_data(subjects_per_task=20, random_state=42):
+   data = load_combined(subjects_per_task, random_state)
+   if data is not None:
+       return data.set_index(combined_subjects=["task", "subject"])
+       
+   rng = np.random.RandomState(random_state)
+   n_subjects = rng.choice(30, subjects_per_task, replace=False)
+
+   merged = merge_dataset([
+       xr.load_dataset(f"{DATASET_DIR}/dataset_MOTOR_30_subjects_normed.nc").isel(subject=n_subjects),
+       xr.load_dataset(f"{DATASET_DIR}/dataset_LANGUAGE_30_subjects_normed.nc").isel(subject=n_subjects), 
+       xr.load_dataset(f"{DATASET_DIR}/dataset_EMOTION_30_subjects_normed.nc").isel(subject=n_subjects),
+       xr.load_dataset(f"{DATASET_DIR}/dataset_WM_30_subjects_normed.nc").isel(subject=n_subjects),
+   ])
+
+   data = merged.stack(combined_subjects=("task", "subject")).transpose(
+       "combined_subjects", "voxel", "time"
+   )
+   store_combined(data, subjects_per_task, random_state)
+   return data
 
 
 def load_data(task="MOTOR_30", n_subjects=5):
@@ -70,7 +82,7 @@ def preprocess_combined_dataset(dataset):
     valid_mask = ~dataset.X.isnull().any(dim="time")
     print(f"Original shape: {dataset.X.shape}")
 
-    dataset = dataset.isel(voxel=valid_mask.all(dim="subject"))
+    dataset = dataset.isel(voxel=valid_mask.all(dim="combined_subjects"))
 
     print(f"Shape after dropping NaNs: {dataset.X.shape}")
     return dataset
@@ -99,30 +111,45 @@ def create_train_test_split(dataset, test_size=0.2, random_state=None):
     return dataset.sel(subject=train_subjects), dataset.sel(subject=test_subjects)
 
 
-def predict(run_id):
-    dataset = preprocess_combined_dataset(load_combined_data())
-    train, test = create_combined_train_test_split(dataset, test_task="LANGUAGE")
-    X_train, X_test = (
-        prepare_bold_input(train.X),
-        prepare_bold_input(test.X),
-    )
-    y_train, y_test = prepare_target_input(train.Y), prepare_target_input(test.Y)
-    print("Xs", X_train.shape, X_test.shape)
-    print("ys", y_train.shape, y_test.shape)
+def load_latest_model(weights_dir="./weights", prefix="multitask"):
+    weights_path = Path(weights_dir)
+    if not weights_path.exists():
+        return None
+        
+    model_files = list(weights_path.glob(f"{prefix}-*.pth"))
+    if not model_files:
+        return None
+        
+    latest_model = max(model_files, key=lambda x: x.stem)
+    return torch.load(latest_model)
 
-    # load model with grid-optimized params
+def trained_model(X_train, y_train, prefix):
     model = RNNCNNDeconvolutionRNN(
         input_size=1,
-        hidden_size=40,
-        kernel_size=20,
+        hidden_size=64,
+        kernel_size=40,
         output_size=1,
     )
+    
+    model_state = load_latest_model(prefix=prefix)
+    if model_state:
+        print("loading pretrained model")
+        model.load_state_dict(model_state)
+        return RNNCNNDeconvolutionRNNTrainer(model=model, config={})
+
+    # load model with grid-optimized params
     train_config = {
         "batch_size": 16,
-        "epochs": 80,
+        "epochs": 40,
         "optimizer": "adam",
         "optimizer_params": {"lr": 0.00030706278416962776},
         "loss_fn": "blocky_loss",
+        "loss_param": {
+            "alpha": 8.0,
+            "lambda_tv": 1.0,
+            "lambda_const": 1,
+            "lambda_val": 2.6,
+        }
     }
     mt = RNNCNNDeconvolutionRNNTrainer(model=model, config=train_config)
 
@@ -134,9 +161,28 @@ def predict(run_id):
     # train on length 1x data
     mt.train(X_train_aug, y_train_aug)
 
-    # test on length 2x data
-    X_test = torch.cat([X_test, X_test], dim=1)
-    y_test = torch.cat([y_test, y_test], dim=1)
+    return mt
+        
+
+def predict(run_id, save_model=False):
+    print("running end-to-end prediction", run_id, f"(save_model={save_model})")
+    prefix = "multitask"
+    
+    dataset = preprocess_combined_dataset(load_combined_data())
+    train, test = create_combined_train_test_split(dataset, test_task="LANGUAGE")
+    X_train, X_test = (
+        prepare_bold_input(train.X),
+        prepare_bold_input(test.X),
+    )
+    y_train, y_test = prepare_target_input(train.Y), prepare_target_input(test.Y)
+    print("Xs", X_train.shape, X_test.shape)
+    print("ys", y_train.shape, y_test.shape)
+
+    mt = trained_model(X_train, y_train, prefix=prefix)
+
+    if save_model:
+        model_path = f"./weights/{prefix}-{run_id}.pth"
+        mt.save_model(model_path)
 
     y_pred = mt.predict(X_test)
     print(y_pred.shape)
@@ -152,6 +198,7 @@ def predict(run_id):
 
 
 def evaluate_models(run_id):
+    print("running models evaluation", run_id)
     dataset = preprocess_dataset(load_data(task="MOTOR_100", n_subjects=100))
 
     train, test = create_train_test_split(dataset)
@@ -172,29 +219,29 @@ def evaluate_models(run_id):
 
     # select the best model
     models_and_trainers = [
-        (BiLSTM, BiLSTM_Trainer, {"base_criterion": nn.L1Loss()}),
-        (ConvLSTM, ConvLSTM_Trainer, {"base_criterion": nn.L1Loss()}),
-        (LSTM_attention, LSTM_attention_Trainer, {"base_criterion": nn.L1Loss()}),
-        (PureConv, PureConv_Trainer, {"base_criterion": nn.L1Loss()}),
-        (RNNCNNDeconvolutionRNNbi, RNNCNNDeconvolutionRNN_bi_Trainer, {}),
-        (
-            RNNCNNDeconvolutionRNNbi,
-            RNNCNNDeconvolutionRNN_bi_Trainer,
-            {"base_criterion": nn.L1Loss()},
-        ),
-        (LSTM1l, LSTM1lTrainer, {"base_criterion": nn.L1Loss()}),
-        (LSTM3l, LSTM3lTrainer, {"base_criterion": nn.L1Loss()}),
-        (
-            RNNCNNDeconvolutionRNN,
-            RNNCNNDeconvolutionRNNTrainer,
-            {"base_criterion": nn.L1Loss()},
-        ),
+        # (BiLSTM, BiLSTM_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (ConvLSTM, ConvLSTM_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (LSTM_attention, LSTM_attention_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (PureConv, PureConv_Trainer, {"base_criterion": nn.L1Loss()}),
+        # (RNNCNNDeconvolutionRNNbi, RNNCNNDeconvolutionRNN_bi_Trainer, {}),
+        # (
+        #     RNNCNNDeconvolutionRNNbi,
+        #     RNNCNNDeconvolutionRNN_bi_Trainer,
+        #     {"base_criterion": nn.L1Loss()},
+        # ),
+        # (LSTM1l, LSTM1lTrainer, {"base_criterion": nn.L1Loss()}),
+        # (LSTM3l, LSTM3lTrainer, {"base_criterion": nn.L1Loss()}),
+        # (
+        #     RNNCNNDeconvolutionRNN,
+        #     RNNCNNDeconvolutionRNNTrainer,
+        #     {"base_criterion": nn.L1Loss()},
+        # ),
+        # (
+        #     RNNCNNDeconvolutionRNN,
+        #     RNNCNNDeconvolutionRNNTrainer,
+        #     {"base_criterion": nn.MSELoss()},
+        # ),
         (RNNCNNDeconvolutionRNN, RNNCNNDeconvolutionRNNTrainer, {}),
-        (
-            RNNCNNDeconvolutionRNN,
-            RNNCNNDeconvolutionRNNTrainer,
-            {"base_criterion": nn.MSELoss()},
-        ),
     ]
 
     eval_models(
@@ -215,17 +262,52 @@ def evaluate_models(run_id):
 
     print("EVAL RUN DONE", run_id)
 
+def evaluate_model(run_id, save_model=False):
+    prefix = "motor"
+    print("evaluate model", prefix, run_id, f"(save_model={save_model})")
+    
+    dataset = preprocess_dataset(load_data(task="MOTOR_100", n_subjects=100))
+    train, test = create_train_test_split(dataset)
+    X_train, X_test, y_train, y_test = train.X, test.X, train.Y, test.Y
+    
+    X_train, X_test = (
+        prepare_bold_input(train.X),
+        prepare_bold_input(test.X),
+    )
+    y_train, y_test = prepare_target_input(train.Y), prepare_target_input(test.Y)
+    print("Xs", X_train.shape, X_test.shape)
+    print("ys", y_train.shape, y_test.shape)
+
+    mt = trained_model(X_train, y_train, prefix=prefix)
+
+    if save_model:
+        model_path = f"./weights/{prefix}-{run_id}.pth"
+        mt.save_model(model_path)
+
+    y_pred = mt.predict(X_test)
+    print(y_pred.shape)
+
+    x_name = f"./preds/x-{run_id}.npy"
+    y_true_name = f"./preds/y_true-{run_id}.npy"
+    y_pred_name = f"./preds/y_pred-{run_id}.npy"
+
+    np.save(x_name, X_test)
+    np.save(y_true_name, y_test)
+    np.save(y_pred_name, y_pred)
+    print("MOTOR PREDICTION RUN DONE", run_id)
 
 def main():
     run_id = str(int(time.time()))
 
-    if len(argv) > 1 and argv[1] == "predict":
-        predict(run_id)
+    if len(argv) > 1 and argv[1] == "models_evals":
+        evaluate_models(run_id)
         return
 
     if len(argv) > 1 and argv[1] == "eval":
-        evaluate_models(run_id)
+        evaluate_model(run_id, save_model=os.getenv('SAVE_MODEL') is not None)
         return
+
+    predict(run_id, save_model=os.getenv('SAVE_MODEL') is not None)
 
 
 if __name__ == "__main__":
