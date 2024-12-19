@@ -60,6 +60,45 @@ Run the voxel selection script to keep only the most meaningful the data:
 
 ## RepoStructure
 The main files and directories in this project are as follows:
+```plaintext
+project-folder/
+├── atlas/HMAT/
+│   ├── HMAT_Manuscript.pdf       # 
+│   ├── README.txt                # 
+├── docs                          #papers and bibliography
+├── loss/                         #
+│   ├── blocky_loss.py            # 
+│   ├── loss.py                   #
+├── models/                       #
+│   ├── trainer/                  #
+|   │   ├── trainer.py            # 
+│   ├── bi_lstm.py                # 
+│   ├── cnn_rnn.py                #
+|   ├── conv_lstm.py              # 
+│   ├── lstm_1l.py                #
+|   ├── lstm_3l.py                # 
+│   ├── lstm_att.py               #
+|   ├── lstm_conv.py              # 
+│   ├── pure_conv.py              #
+|   ├── rnn_cnn_rnn.py            # 
+│   ├── rnn_cnn_rnn_bi.py         #   
+|── notebooks/
+|   ├──        # 
+│   ├──        #
+|   ├──        # 
+│   ├──  
+├── augment.py                    # 
+├── model_eval.py                 # 
+├── model_grid_search.py          # 
+├── model_selection.py            #
+├── obtain_dataset.py             # 
+└── preprocessing.py              # 
+├── preprocessing_multi_task.py   # 
+├── run.py                        # 
+├── select_subjects.pdf           # 
+├── utils.py                      # 
+├── viz.py                        #
+
 
 ## Requirements
 - **Programming Language**: Python 3.x
