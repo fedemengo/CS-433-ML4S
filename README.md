@@ -56,17 +56,38 @@ Run the voxel selection script to keep only the most meaningful the data:
 > python scripts/voxel_selection.py
 
 ### Models
-Models can be found inside the ⁠ models ⁠ directory, with the subdirectory ⁠ trainer ⁠ containing the train class to train the models. The following models have been reported:
-•⁠  ⁠*bi_lstm*: bidirectional LSTM, 3 layers + + Fully connected layer
-•⁠  ⁠*cnn_rnn*: CNN that feeds into RNN + FC
-•⁠  ⁠*conv_lstm*: CNN that feeds into LSTM + Fully connected layer
-•⁠  ⁠*lstm_1l*: simple 1 layer LSTM + Fully connected layer
-•⁠  ⁠*lstm_3l*: 3 layers LSTM + Fully connected layer
-•⁠  ⁠*lstm_att*: LSTM with attention mechanism
-•⁠  ⁠*lstm_conv*: LSTM that feeds into convolutional layer
-•⁠  ⁠*pure_conv*: CNN 3 Layers + Fully connected layer
-•⁠  ⁠*rnn_cnn_rnn*: LSTM 2layer + FC that predicts a convolutional kernel, the convolved signal feeds into a 3L LSTM + FC
-•⁠  ⁠*rnn_cnn_rnn_bi*: same as above, using bidirectional LSTMs
+
+- **bi_lstm**: 
+
+  - A Bidirectional LSTM model with 3 layers, followed by a fully connected (FC) layer.
+
+- **cnn_rnn**: 
+  - A Convolutional Neural Network (CNN) that feeds into a Recurrent Neural Network (RNN), followed by a fully connected (FC) layer.
+
+- **conv_lstm**: 
+  - A CNN that feeds into an LSTM, followed by a fully connected (FC) layer.
+
+- **lstm_1l**: 
+  - A simple LSTM model with 1 layer, followed by a fully connected (FC) layer.
+
+- **lstm_3l**: 
+  - An LSTM model with 3 layers, followed by a fully connected (FC) layer.
+
+- **lstm_att**: 
+  - An LSTM model with an attention mechanism, followed by a fully connected (FC) layer.
+
+- **lstm_conv**: 
+  - An LSTM model that feeds into a convolutional layer.
+
+- **pure_conv**: 
+  - A pure CNN model with 3 layers, followed by a fully connected (FC) layer.
+
+- **rnn_cnn_rnn**: 
+  - A hybrid model consisting of a 2-layer LSTM followed by a fully connected (FC) layer that predicts a convolutional kernel. The convolved signal then feeds into a 3-layer LSTM, followed by another FC layer.
+
+- **rnn_cnn_rnn_bi**: 
+  - Similar to `rnn_cnn_rnn`, but uses bidirectional LSTMs in its architecture.
+
 
 
 ## Requirements
