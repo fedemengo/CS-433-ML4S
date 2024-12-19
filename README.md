@@ -44,13 +44,13 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
 2. **Machine Learning**:
    - **RNNs**: Capture temporal dependencies in the BOLD signal.
    - **CNNs**: Handle spatially structured data for improved analysis of voxel relationships.
-   -
+
 ## Usage
 ### Prediction using pretrained model
 
 > python run.py
 
-### Models
+## Models
 
 - **bi_lstm**: A Bidirectional LSTM model with 3 layers, followed by a fully connected (FC) layer.
 
