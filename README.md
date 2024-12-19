@@ -57,36 +57,25 @@ Run the voxel selection script to keep only the most meaningful the data:
 
 ### Models
 
-- **bi_lstm**: 
+- **bi_lstm**: A Bidirectional LSTM model with 3 layers, followed by a fully connected (FC) layer.
 
-  - A Bidirectional LSTM model with 3 layers, followed by a fully connected (FC) layer.
+- **cnn_rnn**: A Convolutional Neural Network (CNN) that feeds into a Recurrent Neural Network (RNN), followed by a fully connected (FC) layer.
 
-- **cnn_rnn**: 
-  - A Convolutional Neural Network (CNN) that feeds into a Recurrent Neural Network (RNN), followed by a fully connected (FC) layer.
+- **conv_lstm**:  A CNN that feeds into an LSTM, followed by a fully connected (FC) layer.
 
-- **conv_lstm**: 
-  - A CNN that feeds into an LSTM, followed by a fully connected (FC) layer.
+- **lstm_1l**:  A simple LSTM model with 1 layer, followed by a fully connected (FC) layer.
 
-- **lstm_1l**: 
-  - A simple LSTM model with 1 layer, followed by a fully connected (FC) layer.
+- **lstm_3l**: An LSTM model with 3 layers, followed by a fully connected (FC) layer.
 
-- **lstm_3l**: 
-  - An LSTM model with 3 layers, followed by a fully connected (FC) layer.
+- **lstm_att**: An LSTM model with an attention mechanism, followed by a fully connected (FC) layer.
 
-- **lstm_att**: 
-  - An LSTM model with an attention mechanism, followed by a fully connected (FC) layer.
+- **lstm_conv**: An LSTM model that feeds into a convolutional layer.
 
-- **lstm_conv**: 
-  - An LSTM model that feeds into a convolutional layer.
+- **pure_conv**: A pure CNN model with 3 layers, followed by a fully connected (FC) layer.
 
-- **pure_conv**: 
-  - A pure CNN model with 3 layers, followed by a fully connected (FC) layer.
+- **rnn_cnn_rnn**: A hybrid model consisting of a 2-layer LSTM followed by a fully connected (FC) layer that predicts a convolutional kernel. The convolved signal then feeds into a 3-layer LSTM, followed by another FC layer.
 
-- **rnn_cnn_rnn**: 
-  - A hybrid model consisting of a 2-layer LSTM followed by a fully connected (FC) layer that predicts a convolutional kernel. The convolved signal then feeds into a 3-layer LSTM, followed by another FC layer.
-
-- **rnn_cnn_rnn_bi**: 
-  - Similar to `rnn_cnn_rnn`, but uses bidirectional LSTMs in its architecture.
+- **rnn_cnn_rnn_bi**: Similar to `rnn_cnn_rnn`, but uses bidirectional LSTMs in its architecture.
 
 
 
