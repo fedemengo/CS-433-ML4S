@@ -5,12 +5,13 @@ import matplotlib.pyplot as plt
 import copy
 import os
 import glob
+import json
 import warnings
 from os.path import join as pjoin
 import pynvml
 import scipy.io
 from nilearn import image
-from nilearn.glm import threshold_stats_img
+from nilearn.image import resample_to_img
 from nilearn.glm.first_level import FirstLevelModel
 from nilearn.plotting import (
     plot_design_matrix,
@@ -18,6 +19,7 @@ from nilearn.plotting import (
     plot_img,
     plot_glass_brain,
 )
+from utils import resample_mask
 
 from viz import plot_brain_dist_comparison
 
@@ -25,12 +27,14 @@ from viz import plot_brain_dist_comparison
 def mkdir_no_exist(d):
     os.makedirs(d, exist_ok=True)
 
+
+def save_data(name, data):
+    json.dump(data, open(f"./models_eval/{name}.json", "w"))
+
+
 def pretty_print(data):
-    formatted_json = json.dumps(data, 
-        indent=2,
-        sort_keys=True,
-        separators=(',', ': '),
-        ensure_ascii=False
+    formatted_json = json.dumps(
+        data, indent=2, sort_keys=True, separators=(",", ": "), ensure_ascii=False
     )
     print(formatted_json)
 
@@ -56,6 +60,9 @@ mkdir_no_exist(anat_dir)
 mkdir_no_exist(func_dir)
 mkdir_no_exist(events_dir)
 
+motor_atlas_old = "/media/RCPNAS/Data2/CS-433-ML4S/HMAT/HMAT.nii"
+task_atlas_path = {"MOTOR": resample_mask(motor_atlas_old)}
+
 
 def subject_gm_mask_path(subject):
     return pjoin(anat_dir, f"{subject}_gm_mask.nii.gz")
@@ -66,29 +73,36 @@ def subject_task_concat_volumes_path(subject, task, aquisition, smoothing):
         func_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_fMRIvols.nii.gz"
     )
 
+
 def subject_task_regressor_path(subject, task, aquisition):
     return pjoin(paradigm_dir, f"{subject}_Regressor_tfMRI_{task}_{aquisition}.mat")
+
 
 def subject_task_fmap(subject, task, aquisition, smoothing):
     return pjoin(
         func_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_fmap.nii.gz"
     )
 
+
 def subject_task_active_mask_path(subject, task, aquisition, smoothing, voxel_quantile):
     return pjoin(
-        func_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}quantile_active_mask.nii.gz"
+        func_dir,
+        f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}quantile_active_mask.nii.gz",
     )
+
 
 def subject_task_sample_prefix(subject, task, aquisition, smoothing, voxel_quantile):
     return pjoin(
-        project_dataset_dir, f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}_"
+        DATASET_DIR,
+        f"{subject}_{task}_{aquisition}_smooth-{smoothing}mm_{voxel_quantile}_",
     )
+
 
 def processed_event(subject, task, aquisition):
     return pjoin(events_dir, f"{subject}_{task}_{aquisition}_event.csv")
 
 
-def plot_brain_dist(data, title,pdf=None):
+def plot_brain_dist(data, title, pdf=None):
     mask = (data != 0).astype(int)
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(8, 2))
@@ -113,7 +127,9 @@ def plot_brain_dist(data, title,pdf=None):
         plt.show()
 
 
-def process_gray_matter_mask(anat_dir, subject, border_size=10, save=False, plot=True,pdf=None):
+def process_gray_matter_mask(
+    anat_dir, subject, border_size=10, save=False, plot=True, pdf=None
+):
     # Save the 4D image as .nii.gz
     clean_gm_mask_file = subject_gm_mask_path(subject)
     if not os.path.isfile(clean_gm_mask_file):
@@ -140,7 +156,6 @@ def process_gray_matter_mask(anat_dir, subject, border_size=10, save=False, plot
         )
         clean_data[:, :, -border_size:] = 0
 
-
     clean_gm_mask = nib.Nifti1Image(
         clean_data, affine=nifti_image.affine, header=nifti_image.header
     )
@@ -163,11 +178,12 @@ def process_gray_matter_mask(anat_dir, subject, border_size=10, save=False, plot
             figure=plt.figure(figsize=(10, 3)),
         )
 
-    if pdf is not None:
-        pdf.savefig(fig)
-        plt.close(fig)
-    else:
-        plt.show()
+    # if pdf is not None:
+    #      pdf.savefig(fig)
+    #      plt.close(fig)
+    # else:
+    #     plt.show()
+
     if save:
         nib.save(clean_gm_mask, clean_gm_mask_file)
 
@@ -209,7 +225,14 @@ def create_4d_volume(subject, task, acquisition, smoothing=5, save=True):
     return nib.load(concat_4d_vols_file)
 
 
-def create_events_df(subject, task, acquisition, plot_regressors=False, save_csv=True, drop_non_paradigm=True):
+def create_events_df(
+    subject,
+    task,
+    acquisition,
+    plot_regressors=False,
+    save_csv=True,
+    drop_non_paradigm=True,
+):
     proced_event = processed_event(subject, task, acquisition)
 
     filepath = pjoin(
@@ -260,7 +283,6 @@ def create_events_df(subject, task, acquisition, plot_regressors=False, save_csv
         events = events[events["trial_type"] != "condition_0"]
         events = events.reset_index(drop=True)
 
-    condition_counts = events["trial_type"].value_counts().to_dict()
     independent_events = copy.deepcopy(events)
     # Modify the trial_type to include the index of each event occurrence
     independent_events["trial_type"] = [
@@ -274,7 +296,7 @@ def create_events_df(subject, task, acquisition, plot_regressors=False, save_csv
     return independent_events
 
 
-def plot_fmap(fmap, threshold, display_mode, task="", info=None, cut_cords=7,pdf=None):
+def plot_fmap(fmap, threshold, display_mode, task="", info=None, cut_cords=7, pdf=None):
     display = plot_stat_map(
         fmap,
         threshold=threshold,
@@ -290,8 +312,10 @@ def plot_fmap(fmap, threshold, display_mode, task="", info=None, cut_cords=7,pdf
     if pdf is not None:
         pdf.savefig(display.frame_axes.figure)
         plt.close(display.frame_axes.figure)
-    else: plt.show()
-        
+    else:
+        plt.show()
+
+
 def plot_fmap_glass(fmap, threshold, task="", info=None):
     plot_glass_brain(
         fmap,
@@ -303,14 +327,23 @@ def plot_fmap_glass(fmap, threshold, task="", info=None):
 
 
 def compute_task_fmap(
-    subject, task, acquisition, smoothing, fmri_glm, contrast_matrix, save=False, output_type='stat'
+    subject,
+    task,
+    acquisition,
+    smoothing,
+    fmri_glm,
+    contrast_matrix,
+    save=False,
+    output_type="stat",
 ):
     fmap_path = subject_task_fmap(subject, task, acquisition, smoothing)
     print(fmap_path)
     if os.path.isfile(fmap_path):
         return nib.load(fmap_path)
 
-    f_test_result = fmri_glm.compute_contrast(contrast_matrix, stat_type="F", output_type=output_type)
+    f_test_result = fmri_glm.compute_contrast(
+        contrast_matrix, stat_type="F", output_type=output_type
+    )
     if save:
         f_test_result.to_filename(fmap_path)
 
@@ -330,14 +363,14 @@ def show_task_activation(
     plot_designmatrix=False,
     fdr_rate=0.01,
     threshold=2,
-    bins_perc = 90,
+    bins_perc=90,
     plot_glass=False,
 ):
     """
     If threshold is None, it is computed automatically by compute_bins_threshold with fixed
-    
-    
-    
+
+
+
     """
     print("selecting subject gray matter mask")
     gm_mask = subject_gm_mask_path(subject)
@@ -383,9 +416,8 @@ def show_task_activation(
     )
     if threshold is None:
         print("Threshold not specified, automatically compute threshold")
-        threshold = compute_bins_threshold(fmap,bins_perc)
-        print("threshold:",threshold)
-
+        threshold = compute_bins_threshold(fmap, bins_perc)
+        print("threshold:", threshold)
 
     info = {"sub": subject, "smooth": f"{smoothing}mm"}
     if plot_glass:
@@ -395,74 +427,95 @@ def show_task_activation(
         plot_fmap(fmap, threshold, "x", task=task, info=info, cut_cords=x_coords)
         plot_fmap(fmap, threshold, "y", task=task, info=info, cut_cords=y_coords)
     plt.show()
-    
-def compute_bins_threshold(fmap,n_perc=90,pdf=None,show=True):
+
+
+def compute_bins_threshold(fmap, n_perc=90, pdf=None, show=True):
 
     # Step 2: Extract the data array
     fmap_data = fmap.get_fdata()
 
     # Step 3: Flatten the array
     flat_data = fmap_data.ravel()
-    flat_data[flat_data==0] = np.nan
+    flat_data[flat_data == 0] = np.nan
     # Step 4: Filter out NaN or non-finite values
     flat_data = flat_data[np.isfinite(flat_data)]
     threshold = np.percentile(flat_data, n_perc)
     # Step 5: Plot the histogram
     if show:
         fig = plt.figure(figsize=(10, 4))
-        plt.hist(flat_data, bins=100, color='blue', alpha=0.7)
-        plt.axvline(x=threshold, color='red', linestyle='--', label=f'{n_perc}th percentile threshold')
-        plt.title(f'Histogram of Activation Values, {n_perc}% threshold: {threshold}')
+        plt.hist(flat_data, bins=100, color="blue", alpha=0.7)
+        plt.axvline(
+            x=threshold,
+            color="red",
+            linestyle="--",
+            label=f"{n_perc}th percentile threshold",
+        )
+        plt.title(f"Histogram of Activation Values, {n_perc}% threshold: {threshold}")
         plt.legend()
-        plt.xlabel('Activation Value')
-        plt.ylabel('Frequency')
+        plt.xlabel("Activation Value")
+        plt.ylabel("Frequency")
         plt.grid(True)
-            # Save to the PDF if a PdfPages object is provided
+        # Save to the PDF if a PdfPages object is provided
         if pdf is not None:
             pdf.savefig(fig)
             plt.close(fig)
         else:
             plt.show()
-    return threshold 
+    return threshold
 
-def get_mask(fmap,threshold):
+
+def get_mask(fmap, threshold):
     fmap_data = fmap.get_fdata()
     return fmap_data > threshold
+
+
 def resample_mask(mask_path):
     resampled_mask_path = mask_path.replace(".nii", "_resampled2mm.nii")
     if not os.path.exists(resampled_mask_path):
-        image_img = nib.load('/media/miplab-nas2/HCP-Data/HCP_100unrelated_preprocessed_ERG/data/100307/tfMRI_MOTOR_RL/fMRIvols_GLMyes/Cov_ftfMRI_MOTOR_RL0001.nii')
+        image_img = nib.load(
+            "/media/miplab-nas2/HCP-Data/HCP_100unrelated_preprocessed_ERG/data/100307/tfMRI_MOTOR_RL/fMRIvols_GLMyes/Cov_ftfMRI_MOTOR_RL0001.nii"
+        )
         # Resample the mask to the image's resolution
-        resampled_mask_img = resample_to_img(mask_path, image_img, interpolation='nearest')
+        resampled_mask_img = resample_to_img(
+            mask_path, image_img, interpolation="nearest"
+        )
 
         # Save the resampled mask if needed
         resampled_mask_img.to_filename(resampled_mask_path)
         print(f"Resampled mask saved to {resampled_mask_path}")
-    else: print(f'Resampled mask already present at {resampled_mask_path}')
+    else:
+        print(f"Resampled mask already present at {resampled_mask_path}")
     return resampled_mask_path
-def get_atlas_activation(fmap,mask_path,threshold):
+
+
+def get_atlas_activation(fmap, mask_path, threshold):
     """Return: 1:100 atlas activation score"""
     fmap_data = fmap.get_fdata()
-    fmap_data[fmap_data<threshold] = 0
+    fmap_data[fmap_data < threshold] = 0
     mask_data = nib.load(mask_path).get_fdata()
-    mask_data[mask_data>0]=1
-    res = mask_data*fmap_data
-    res[res>0] = 1
-    res = np.sum(res)/np.sum(mask_data==0)*100
+    mask_data[mask_data > 0] = 1
+    res = mask_data * fmap_data
+    res[res > 0] = 1
+    res = np.sum(res) / np.sum(mask_data == 0) * 100
     return res
+
+
 def get_subject_ids(paradigm_dir):
     subject_ids = []
     if os.path.exists(paradigm_dir):
         for file_name in os.listdir(paradigm_dir):
             if file_name.endswith(".mat"):
-                subject_id = file_name.split('_')[0]
+                subject_id = file_name.split("_")[0]
                 subject_ids.append(subject_id)
     return sorted(set(subject_ids))
 
+
 def regressors_to_binary_design(flat_regressors):
     changes = np.where(np.diff(flat_regressors) != 0)[0] + 1
-    blocks = np.zeros((len(flat_regressors), len(changes[flat_regressors[changes] != 0])))
-    
+    blocks = np.zeros(
+        (len(flat_regressors), len(changes[flat_regressors[changes] != 0]))
+    )
+
     cols = []
     block_idx = 0
     for i, j in zip(changes, changes[1:]):
@@ -470,74 +523,57 @@ def regressors_to_binary_design(flat_regressors):
             blocks[i:j, block_idx] = 1
             cols.append(f"block_{block_idx}_cond_{flat_regressors[i]}")
             block_idx += 1
-    
+
     return pd.DataFrame(blocks, columns=cols)
 
 
-def create_4d_volume_(subject, task, acquisition, smoothing, voxel_quantile, base_gm_mask_img, fmap_img, threshold):
-    task_active_thr_map = subject_task_active_mask_path(subject, task, acquisition, smoothing, voxel_quantile)
+def create_4d_volume_(
+    subject,
+    task,
+    acquisition,
+    smoothing,
+    voxel_quantile,
+    base_gm_mask_img,
+    fmap_img,
+    threshold,
+):
+    task_active_thr_map = subject_task_active_mask_path(
+        subject, task, acquisition, smoothing, voxel_quantile
+    )
     if os.path.isfile(task_active_thr_map):
         return nib.load(task_active_thr_map)
 
-    gm_mask_data = base_gm_mask_img.get_fdata()
     fmap_data = fmap_img.get_fdata()
 
-    threshold_mask = (fmap_data > threshold)
+    threshold_mask = fmap_data > threshold
 
     active_data = fmap_data
     active_data[~threshold_mask] = 0
     active_data[threshold_mask] = 1
 
-    active_img = nib.Nifti1Image(active_data, affine=base_gm_mask_img.affine, header=base_gm_mask_img.header)
+    active_img = nib.Nifti1Image(
+        active_data, affine=base_gm_mask_img.affine, header=base_gm_mask_img.header
+    )
     active_img.to_filename(task_active_thr_map)
 
     return active_img
-
-def voxel_activation_glm(mask_img, TR, fmri_vols, events):
-    fmri_glm = FirstLevelModel(
-        mask_img=mask_img,
-        t_r=TR,
-        noise_model='ar1', # or ols 
-        standardize=False,
-        hrf_model='spm',
-        drift_model=None, # not necessary, nuisance covariates have already been removed
-        minimize_memory=False,
-    )
-
-    print(f"fitting GLM for task {task}")
-    fitted_glm = fmri_glm.fit(fmri_vols, events)
-    return fitted_glm
-
-def create_labeled_sample(save_prefix, bold_data, predicted_data, active_mask_img):
-    """
-    Return labeled sample as X_list,Y_list 
-    """
-    voxel_coords = np.array(np.where((active_mask > 0))).T
-    np.save(f'{save_prefix}voxel_mapping.npy', voxel_coords)
-
-    X_list, Y_list = bold_data[active_mask > 0], predicted_data[active_mask > 0]
-    if save_prefix is not None:
-        for i, (X, Y) in enumerate(zip(X_list, Y_list)):
-            np.save(f'{save_prefix}X_{i:04d}.npy', X)
-            np.save(f'{save_prefix}Y_{i:04d}.npy', Y)
-    return X_list,Y_list
 
 
 def get_free_gpu():
     pynvml.nvmlInit()
     device_count = pynvml.nvmlDeviceGetCount()
-    
+
     max_free = 0
     best_gpu = 0
-    
+
     for i in range(device_count):
         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
         info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         free_memory = info.free
-        
+
         if free_memory > max_free:
             max_free = free_memory
             best_gpu = i
-            
+
     pynvml.nvmlShutdown()
     return best_gpu

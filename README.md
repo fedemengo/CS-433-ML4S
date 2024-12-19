@@ -44,7 +44,7 @@ The dataset used in this project comes from the Human Connectome Project (HCP), 
 2. **Machine Learning**:
    - **RNNs**: Capture temporal dependencies in the BOLD signal.
    - **CNNs**: Handle spatially structured data for improved analysis of voxel relationships.
-   - 
+   -
 ## Usage
 ### Data Preprocessing
 Run the preprocessing script to clean and smooth the data:
@@ -77,39 +77,36 @@ The main files and directories in this project are as follows:
 ```plaintext
 project-folder/
 ├── atlas/HMAT/
-│   ├── HMAT_Manuscript.pdf       # 
-│   ├── README.txt                # 
+│   ├── HMAT_Manuscript.pdf       #
+│   ├── README.txt                #
 ├── docs                          # papers and bibliography
 ├── loss/                         #
-│   ├── blocky_loss.py            # 
-│   ├── loss.py                   #
+│   ├── blocky_loss.py            #
 ├── models/                       #
 │   ├── trainer/                  #
-|   │   ├── trainer.py            # 
-│   ├── bi_lstm.py                # model 3 layers BiLSTM + fc 
-│   ├── cnn_rnn.py                # model Conv + 2 layers LSTM + fc
+|   │   ├── trainer.py            # base trainer with shared logic
+│   ├── bi_lstm.py                # model 3 layers BiLSTM + fc
 |   ├── conv_lstm.py              # model Conv + 3 layers LSTM + fc
 │   ├── lstm_1l.py                # model 1 layers LSTM + fc
 |   ├── lstm_3l.py                # model 3 layers LSTM + fc
 │   ├── lstm_att.py               # model LSTM + attention + fc
-|   ├── lstm_conv.py              # model 
 │   ├── pure_conv.py              # model 3 layers conv
 |   ├── rnn_cnn_rnn.py            # model LSTM to create kernel + convolution + LSTM
 │   ├── rnn_cnn_rnn_bi.py         # model BiLSTM to create kernel + convolution + BiLSTM
 |── notebooks/
-|   ├──        # 
+|   ├──        #
 │   ├──        #
-|   ├──        # 
-│   ├──  
+|   ├──        #
+│   ├──
 ├── augment.py                    # dataset augmentation
-├── model_eval.py                 # 
-├── model_grid_search.py          # 
-├── model_selection.py            # 
-├── obtain_dataset.py             # 
-└── preprocessing.py              # preprocessing MOTOR task
-├── preprocessing_multi_task.py   # preprocessing others tasks
-├── run.py                        # 
-├── select_subjects.pdf           # 
-├── utils.py                      # 
-├── viz.py                        #
+└── dataset_motor.py              # dataset generation MOTOR task
+├── dataset_multi_task.py         # dataset generation for others tasks
+├── model_eval.py                 # model comparison
+├── model_grid_search.py          # dense param grid search in optimal neighbourhood
+├── model_selection.py            # optuna sparse param grid search
+├── preprocessing.py              # extract timeseris from fMRI data
+├── run.py                        # entrypoint for prediction and comparison
+├── select_subjects.pdf           # subject selection
+├── utils.py                      # various helpers
+├── viz.py                        # viz utils for nb exploration
 
