@@ -128,3 +128,6 @@ project-folder/
 ├── utils.py                      # various helpers
 ├── viz.py                        # viz utils for nb exploration
 
+```
+## Paper describing our work
+[Open Paper](Paper.pdf)
